@@ -238,6 +238,7 @@ function handleDragEnd(e) {
     attachRemoveButtonListener(item, sourceList, "source-dir__group");
   });
   renameItemIds();
+  checkChanges();
 }
 
 function handleDragOver(e) {
