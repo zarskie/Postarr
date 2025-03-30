@@ -337,21 +337,13 @@ class PosterRenamerr:
         return source_files
 
     def handle_movie_match(
-        self,
-        matched_movies,
-        file,
-        movie_data,
-        movie_has_file,
-        movie_status,
-        webhook_run,
+        self, matched_movies, file, movie_data, movie_has_file, movie_status
     ):
         matched_movies[file] = {
             "has_file": movie_has_file,
             "status": movie_status,
             "match": movie_data,
         }
-        if webhook_run:
-            matched_movies[file]["webhook_run"] = webhook_run
 
     def is_season_complete(self, show_seasons, show_data):
         return (
@@ -361,15 +353,13 @@ class PosterRenamerr:
         )
 
     def handle_show_season_match(
-        self, season, matched_shows, file, show_data, webhook_run, show_seasons
+        self, season, matched_shows, file, show_data, show_seasons
     ):
         season_has_episodes = season.get("has_episodes", None)
         matched_shows[file] = {
             "has_episodes": season_has_episodes,
             "match": show_data,
         }
-        if webhook_run:
-            matched_shows[file]["webhook_run"] = webhook_run
         # remove to determine later if we have all of the seasons
         show_seasons.remove(season)
 
@@ -379,7 +369,6 @@ class PosterRenamerr:
         file,
         show_status,
         show_has_episodes,
-        webhook_run,
         show_seasons,
         show_data,
     ):
@@ -388,8 +377,6 @@ class PosterRenamerr:
             "has_episodes": show_has_episodes,
             "match": show_data,
         }
-        if webhook_run:
-            matched_shows[file]["webhook_run"] = webhook_run
         show_data["series_poster_matched"] = True
         self.logger.debug(f"Show seasons: {show_seasons}")
 
@@ -513,9 +500,9 @@ class PosterRenamerr:
             "sanitized_name_without_extension"
         ].removesuffix(" collection")
         object_to_populate["extra_sanitized_name_without_collection"] = (
-            object_to_populate[
-                "extra_sanitized_name_without_extension"
-            ].removesuffix(" collection")
+            object_to_populate["extra_sanitized_name_without_extension"].removesuffix(
+                " collection"
+            )
         )
         # strip all spaces out
         object_to_populate["sanitized_no_spaces"] = re.sub(
@@ -900,7 +887,7 @@ class PosterRenamerr:
         return stats
 
     def get_alt_titles_from_media_item(self, media_item):
-        if self.match_alt or media_item.get("webhook_run", None):
+        if self.match_alt:
             alt_titles_clean = [
                 utils.remove_chars(alt)
                 for alt in media_item.get("alternate_titles", [])
@@ -927,7 +914,6 @@ class PosterRenamerr:
         show_status = show_data.get("status", "")
         show_seasons = show_data.get("seasons", [])
         show_has_episodes = show_data.get("has_episodes", None)
-        webhook_run = show_data.get("webhook_run", None)
 
         media_object = {}
         self.compute_variations_for_comparisons(search_title, media_object)
@@ -1008,7 +994,6 @@ class PosterRenamerr:
                                     matched_files["shows"],
                                     file,
                                     show_data,
-                                    webhook_run,
                                     show_seasons,
                                 )
                                 matched_season = True
@@ -1047,7 +1032,6 @@ class PosterRenamerr:
                         file,
                         show_status,
                         show_has_episodes,
-                        webhook_run,
                         show_seasons,
                         show_data,
                     )
@@ -1094,7 +1078,6 @@ class PosterRenamerr:
         movie_years = movie_data.get("years", [])
         movie_status = movie_data.get("status", "")
         movie_has_file = movie_data.get("has_file", None)
-        webhook_run = movie_data.get("webhook_run", None)
 
         media_object = {}
         self.compute_variations_for_comparisons(search_title, media_object)
@@ -1141,7 +1124,6 @@ class PosterRenamerr:
                         movie_data,
                         movie_has_file,
                         movie_status,
-                        webhook_run,
                     )
                     search_match["previously_matched"] = f"movies: {movie_title}"
                     break  # found a match break the search match loop
@@ -1534,6 +1516,7 @@ class PosterRenamerr:
         asset_folders: bool,
         cb: Callable[[str, int, ProgressState], None] | None = None,
         job_id: str | None = None,
+        webhook_run: bool | None = None,
     ) -> None:
         show_dict_list = media_dict.get("shows", [])
         movies_dict_list = media_dict.get("movies", [])
@@ -1566,7 +1549,7 @@ class PosterRenamerr:
                             self.replace_border,
                             status=data.get("status", None),
                             has_file=data.get("has_file", None),
-                            webhook_run=data.get("webhook_run", None),
+                            webhook_run=webhook_run,
                         )
                         processed_items += 1
                         progress_bar.update(1)
@@ -1589,6 +1572,7 @@ class PosterRenamerr:
                             backup_dir,
                             file_name_format,
                             self.replace_border,
+                            webhook_run=webhook_run,
                         )
                         processed_items += 1
                         progress_bar.update(1)
@@ -1640,7 +1624,7 @@ class PosterRenamerr:
                             self.replace_border,
                             status=data.get("status", None),
                             has_episodes=data.get("has_episodes", None),
-                            webhook_run=data.get("webhook_run", None),
+                            webhook_run=webhook_run,
                         )
                         processed_items += 1
                         progress_bar.update(1)
@@ -1685,8 +1669,6 @@ class PosterRenamerr:
                 return None
 
             for item in items:
-                if upload_to_plex:
-                    item["webhook_run"] = True
                 media_dict["movies" if asset_type == "movie" else "shows"].append(item)
             self.logger.debug(f"Fetched {asset_type}: {items}")
             return media_dict
@@ -1809,6 +1791,7 @@ class PosterRenamerr:
                 self.logger.debug(f"Asset Folders: {self.asset_folders}")
                 self.logger.debug("Starting file copying and renaming")
 
+            self.logger.info(f"about to copy - setting webhook_run={bool(single_item)}")
             self.copy_rename_files(
                 matched_files,
                 effective_media_dict,
@@ -1816,6 +1799,7 @@ class PosterRenamerr:
                 self.asset_folders,
                 cb,
                 job_id,
+                webhook_run=bool(single_item),
             )
 
             if self.clean_assets and not single_item:
