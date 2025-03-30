@@ -68,17 +68,17 @@ class PlexUploaderr:
                     edition = getattr(item, "editionTitle", None)
                     # this is where we should remove the overlay label in plex that kometa added
                     labels = getattr(item, "labels", None)
-                    hasKometaOverlayLabel = False
+                    has_kometa_overlay_label = False
                     if labels:
                         for label in labels:
-                            if label.tag == 'Overlay':
-                                hasKometaOverlayLabel = True
+                            if label.tag == "Overlay":
+                                has_kometa_overlay_label = True
                                 break
                     item.uploadPoster(filepath=file_path)
                     # remove the label only after the poster upload
                     # this will allow Kometa to pick it up on its next run
-                    if hasKometaOverlayLabel:
-                        item.removeLabel(['Overlay'])
+                    if has_kometa_overlay_label:
+                        item.removeLabel(["Overlay"])
                     libraries.add(library)
                     if edition:
                         editions.add(edition)
@@ -238,15 +238,21 @@ class PlexUploaderr:
                             edition_title = getattr(item, "editionTitle", "")
                             if edition_title:
                                 if edition_title in uploaded_editions:
-                                    self.logger.debug(f"Edition '{edition_title}' already uploaded to library '{library_name}' for '{item_name}', skipping.")
+                                    self.logger.debug(
+                                        f"Edition '{edition_title}' already uploaded to library '{library_name}' for '{item_name}', skipping."
+                                    )
                                     continue
                             else:
                                 if library_name in uploaded_to_libraries:
-                                    self.logger.debug(f"File already uploaded to library '{library_name}' for '{item_name}', skipping.")
+                                    self.logger.debug(
+                                        f"File already uploaded to library '{library_name}' for '{item_name}', skipping."
+                                    )
                                     continue
                             # if we found a match for the file... why do we keep looping both the inner and outer loop?
                             # this implies this file could match multiple items in the same library?
-                            self.logger.debug(f"match found '{library_name}': file:{file_name} --> plex:{item_name}")
+                            self.logger.debug(
+                                f"match found '{library_name}': file:{file_name} --> plex:{item_name}"
+                            )
                             matches.append((library_name, item))
                             library_has_match = True
                 else:
@@ -254,15 +260,24 @@ class PlexUploaderr:
                         edition_title = getattr(plex_object, "editionTitle", "")
                         if edition_title:
                             if edition_title in uploaded_editions:
-                                self.logger.debug(f"Edition '{edition_title}' already uploaded to library '{library_name}' for '{item_name}', skipping.")
+                                self.logger.debug(
+                                    f"Edition '{edition_title}' already uploaded to library '{library_name}' for '{item_name}', skipping."
+                                )
                                 continue
                         else:
-                            if (library_name in uploaded_to_libraries and not library_has_match):
-                                self.logger.debug(f"File already uploaded to library '{library_name}', skipping.")
+                            if (
+                                library_name in uploaded_to_libraries
+                                and not library_has_match
+                            ):
+                                self.logger.debug(
+                                    f"File already uploaded to library '{library_name}', skipping."
+                                )
                                 continue
                         # if we found a match for the file... why do we keep looping both the inner and outer loop?
                         # this implies this file could match multiple items in the same library?
-                        self.logger.debug(f"match found '{library_name}': file:{file_name} --> plex:{item_name}")
+                        self.logger.debug(
+                            f"match found '{library_name}': file:{file_name} --> plex:{item_name}"
+                        )
                         matches.append((library_name, plex_object))
                         library_has_match = True
         return matches
@@ -497,7 +512,9 @@ class PlexUploaderr:
                 "Reapply posters is enabled. Clearing uploaded_to_libraries data and re-uploading them to plex."
             )
         else:
-            self.logger.info("Reapply posters is disabled. Leaving cached upload state in tact")
+            self.logger.info(
+                "Reapply posters is disabled. Leaving cached upload state in tact"
+            )
 
         cached_files = self.db.return_all_files()
 
@@ -548,7 +565,7 @@ class PlexUploaderr:
                     )
                     self.logger.error(traceback.print_exc)
                     plex_media_dict[name] = {"all_movies": {}, "all_shows": {}}
-                    raise e # purposely crash if this happens vs. silently going forward to make it obvious
+                    raise e  # purposely crash if this happens vs. silently going forward to make it obvious
 
             if job_id and cb:
                 cb(job_id, 60, ProgressState.IN_PROGRESS)
