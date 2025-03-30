@@ -513,7 +513,7 @@ class PlexUploaderr:
             )
         else:
             self.logger.info(
-                "Reapply posters is disabled. Leaving cached upload state in tact"
+                "Reapply posters is disabled. Leaving cached upload state intact"
             )
 
         cached_files = self.db.return_all_files()

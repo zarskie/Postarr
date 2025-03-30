@@ -402,14 +402,14 @@ class PosterRenamerr:
                 id_match = (
                     asset["media_ids"][id_source] == media["media_ids"][id_source]
                 )
-                self.logger.info(
+                self.logger.debug(
                     f"both sides shared a common id! do they match? {id_match} ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
                 )
                 # if the current source existed but didn't match, but there are still other IDs to consider - keep looping
                 if id_match:
                     return True
             # at this poing we know there were common sources and if any had matched we would have short circuited above.
-            self.logger.info(
+            self.logger.debug(
                 f"both sides shared a common id! but none matched ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
             )
             return False
@@ -1528,7 +1528,8 @@ class PosterRenamerr:
         matched_collections = len(matched_files.get("collections", []))
         total_matched_items = matched_movies + matched_shows + matched_collections
         with tqdm(
-            total=total_matched_items, desc="Processing matched files"
+            total=total_matched_items,
+            desc=f"Processing matched files (webhook_run={webhook_run})",
         ) as progress_bar:
             processed_items = 0
             for key, items in matched_files.items():
@@ -1791,7 +1792,6 @@ class PosterRenamerr:
                 self.logger.debug(f"Asset Folders: {self.asset_folders}")
                 self.logger.debug("Starting file copying and renaming")
 
-            self.logger.info(f"about to copy - setting webhook_run={bool(single_item)}")
             self.copy_rename_files(
                 matched_files,
                 effective_media_dict,
