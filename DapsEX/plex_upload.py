@@ -67,16 +67,16 @@ class PlexUploaderr:
                     edition = getattr(item, "editionTitle", None)
                     # this is where we should remove the overlay label in plex that kometa added
                     labels = getattr(item, "labels", None)
-                    hasKometaOverlayLabel = False
+                    has_kometa_overlay_label = False
                     if labels:
                         for label in labels:
                             if label.tag == "Overlay":
-                                hasKometaOverlayLabel = True
+                                has_kometa_overlay_label = True
                                 break
                     item.uploadPoster(filepath=file_path)
                     # remove the label only after the poster upload
                     # this will allow Kometa to pick it up on its next run
-                    if hasKometaOverlayLabel:
+                    if has_kometa_overlay_label:
                         item.removeLabel(["Overlay"])
                     libraries.add(library)
                     if edition:
@@ -512,7 +512,7 @@ class PlexUploaderr:
             )
         else:
             self.logger.info(
-                "Reapply posters is disabled. Leaving cached upload state in tact"
+                "Reapply posters is disabled. Leaving cached upload state intact"
             )
 
         cached_files = self.db.return_all_files()
