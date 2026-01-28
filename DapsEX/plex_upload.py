@@ -664,7 +664,7 @@ class PlexUploaderr:
 
     def update_cached_files(self, cached_files: dict):
         media_dict = utils.get_combined_media_dict(
-            self.radarr_instances, self.sonarr_instances
+            self.radarr_instances, self.sonarr_instances, skip_alternate_metadata=True
         )
         movies_lookup = {
             movie["folder"].lower(): movie["has_file"]

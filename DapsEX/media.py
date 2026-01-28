@@ -16,7 +16,8 @@ from plexapi.server import PlexServer
 
 class Media:
     def get_series_with_seasons(
-        self, logger, all_series_objects: list[Series], instance_name: str
+        self, logger, all_series_objects: list[Series], instance_name: str,
+        skip_alternate_metadata: bool = False
     ):
         titles_with_seasons = []
         for media_object in all_series_objects:
@@ -46,20 +47,23 @@ class Media:
             dict_with_seasons["imdb_id"] = imdb_id
             dict_with_seasons["path"] = media_object.path
             dict_with_seasons["folder"] = path.name
-            try:
-                raw_api = media_object._raw
-                series_data = raw_api.get_series_id(series_id)
-                tmdb_id = str(series_data.get("tmdbId", 0))
-                dict_with_seasons["tmdb_id"] = tmdb_id
-                if series_data:
-                    alternate_titles = self.extract_alternate_titles(
-                        series_data.get("alternateTitles", [])
+            if not skip_alternate_metadata:
+                try:
+                    raw_api = media_object._raw
+                    series_data = raw_api.get_series_id(series_id)
+                    tmdb_id = str(series_data.get("tmdbId", 0))
+                    dict_with_seasons["tmdb_id"] = tmdb_id
+                    if series_data:
+                        alternate_titles = self.extract_alternate_titles(
+                            series_data.get("alternateTitles", [])
+                        )
+                        dict_with_seasons["alternate_titles"] = alternate_titles
+                except Exception as e:
+                    logger.error(
+                        f"Error fetching series data for ID {series_id}, title={title}: {e}"
                     )
-                    dict_with_seasons["alternate_titles"] = alternate_titles
-            except Exception as e:
-                logger.error(
-                    f"Error fetching series data for ID {series_id}, title={title}: {e}"
-                )
+            else:
+                dict_with_seasons["alternate_titles"] = []
             dict_with_seasons["title"] = f"{dict_with_seasons['arr_title']} ({dict_with_seasons['media_year']})"
             if tmdb_id != "0":
                 dict_with_seasons["title"] = f"{dict_with_seasons['title']} {{tmdb-{tmdb_id}}}"
@@ -92,7 +96,9 @@ class Media:
         return titles_with_seasons
 
     def get_movies_with_years(
-        self, all_movie_objects: list[Movie], instance_name: str, logger
+        self, all_movie_objects: list[Movie], instance_name: str, logger,
+        skip_alternate_metadata: bool = False
+
     ) -> list[dict[str, str | list[str]]]:
         titles_with_years = []
 
@@ -116,21 +122,23 @@ class Media:
             imdb_id = str(media_object.imdbId)
             tmdb_id = str(media_object.tmdbId)
 
-            # get raw
-            try:
-                raw_api = media_object._raw
-                movie_data = raw_api.get_movie_id(movie_id)
-                alternate_titles = self.extract_movie_alternate_titles(
-                    movie_data.get("alternateTitles", [])
-                )
-                dict_with_years["alternate_titles"] = alternate_titles
-                secondary_year = movie_data.get("secondaryYear", None)
-                if secondary_year:
-                    dict_with_years["years"].append(str(secondary_year))
-            except Exception as e:
-                logger.error(
-                    f"Error fetching movie data for ID {movie_id}, title={title}: {e}"
-                )
+            if not skip_alternate_metadata:
+                try:
+                    raw_api = media_object._raw
+                    movie_data = raw_api.get_movie_id(movie_id)
+                    alternate_titles = self.extract_movie_alternate_titles(
+                        movie_data.get("alternateTitles", [])
+                    )
+                    dict_with_years["alternate_titles"] = alternate_titles
+                    secondary_year = movie_data.get("secondaryYear", None)
+                    if secondary_year:
+                        dict_with_years["years"].append(str(secondary_year))
+                except Exception as e:
+                    logger.error(
+                        f"Error fetching movie data for ID {movie_id}, title={title}: {e}"
+                    )
+            else:
+                dict_with_years["alternate_titles"] = []
             dict_with_years["arr_title"] = title
             dict_with_years["status"] = status
             dict_with_years["has_file"] = has_file
@@ -172,9 +180,7 @@ class Radarr(Media):
             self.radarr = RadarrAPI(base_url, api)
             self.instance_name = instance_name
             self.all_movie_objects = self.get_all_movies()
-            self.movies = self.get_movies_with_years(
-                self.all_movie_objects, self.instance_name, logger
-            )
+            self.movies = None
         except ArrApiUnauthorized as e:
             self.logger.error(
                 "Error: Unauthorized access to Radarr. Please check your API key."
@@ -185,6 +191,18 @@ class Radarr(Media):
                 "Error: Connection to Radarr failed. Please check your base URL or network connection."
             )
             raise e
+
+    # memoize this
+    def get_movies_info(self, skip_alternate_metadata: bool = False):
+        if self.movies:
+            return self.movies
+        self.movies = self.get_movies_with_years(
+            self.all_movie_objects,
+            self.instance_name,
+            self.logger,
+            skip_alternate_metadata,
+        )
+        return self.movies
 
     def get_all_movies(self) -> list[Movie]:
         return self.radarr.all_movies()
@@ -204,9 +222,7 @@ class Sonarr(Media):
             self.sonarr = SonarrAPI(base_url, api)
             self.instance_name = instance_name
             self.all_series_objects = self.get_all_series()
-            self.series = self.get_series_with_seasons(
-                self.logger, self.all_series_objects, self.instance_name
-            )
+            self.series = None
         except ArrApiUnauthorized as e:
             self.logger.error(
                 "Error: Unauthorized access to Sonarr. Please check your API key."
@@ -217,6 +233,18 @@ class Sonarr(Media):
                 "Error: Connection to Sonarr failed. Please check your base URL or network connection."
             )
             raise e
+
+    # memoize this
+    def get_series_info(self, skip_alternate_metadata: bool = False):
+        if self.series:
+            return self.series
+        self.series = self.get_series_with_seasons(
+            self.logger,
+            self.all_series_objects,
+            self.instance_name,
+            skip_alternate_metadata
+        )
+        return self.series
 
     def get_all_series(self) -> list[Series]:
         return self.sonarr.all_series()
