@@ -194,14 +194,13 @@ class Radarr(Media):
 
     # memoize this
     def get_movies_info(self, skip_alternate_metadata: bool = False):
-        if self.movies:
-            return self.movies
-        self.movies = self.get_movies_with_years(
-            self.all_movie_objects,
-            self.instance_name,
-            self.logger,
-            skip_alternate_metadata,
-        )
+        if not self.movies:
+            self.movies = self.get_movies_with_years(
+                self.all_movie_objects,
+                self.instance_name,
+                self.logger,
+                skip_alternate_metadata,
+            )
         return self.movies
 
     def get_all_movies(self) -> list[Movie]:
@@ -236,14 +235,13 @@ class Sonarr(Media):
 
     # memoize this
     def get_series_info(self, skip_alternate_metadata: bool = False):
-        if self.series:
-            return self.series
-        self.series = self.get_series_with_seasons(
-            self.logger,
-            self.all_series_objects,
-            self.instance_name,
-            skip_alternate_metadata
-        )
+        if not self.series:
+            self.series = self.get_series_with_seasons(
+                self.logger,
+                self.all_series_objects,
+                self.instance_name,
+                skip_alternate_metadata
+            )
         return self.series
 
     def get_all_series(self) -> list[Series]:
