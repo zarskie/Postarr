@@ -19,6 +19,7 @@ on:
       - "migrate_db.py"
       - "progress.py"
       - "scheduler.py"
+  workflow_dispatch:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
