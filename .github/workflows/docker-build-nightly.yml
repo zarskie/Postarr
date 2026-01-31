@@ -44,17 +44,6 @@ jobs:
           driver-opts: |
             image=moby/buildkit:master
 
-      - name: Prepare cache directory
-        run: mkdir -p /tmp/.buildx-cache && chmod -R 777 /tmp/.buildx-cache
-
-      - name: Cache Docker layers
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile') }}-${{ hashFiles('**/package*.json') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -65,8 +54,6 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
