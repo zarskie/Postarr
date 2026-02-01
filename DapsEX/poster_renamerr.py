@@ -1793,7 +1793,7 @@ class PosterRenamerr:
                     )
 
                 media_dict = utils.get_combined_media_dict(
-                    self.radarr_instances, self.sonarr_instances
+                    self.radarr_instances, self.sonarr_instances, self.logger
                 )
                 collections_dict = utils.get_combined_collections_dict(
                     self.plex_instances
