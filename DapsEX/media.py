@@ -16,8 +16,7 @@ from plexapi.server import PlexServer
 
 class Media:
     def get_series_with_seasons(
-        self, logger, all_series_objects: list[Series], instance_name: str,
-        skip_alternate_metadata: bool = False
+        self, logger, all_series_objects: list[Series], instance_name: str
     ):
         titles_with_seasons = []
         for media_object in all_series_objects:
@@ -47,23 +46,15 @@ class Media:
             dict_with_seasons["imdb_id"] = imdb_id
             dict_with_seasons["path"] = media_object.path
             dict_with_seasons["folder"] = path.name
-            if not skip_alternate_metadata:
-                try:
-                    raw_api = media_object._raw
-                    series_data = raw_api.get_series_id(series_id)
-                    tmdb_id = str(series_data.get("tmdbId", 0))
-                    dict_with_seasons["tmdb_id"] = tmdb_id
-                    if series_data:
-                        alternate_titles = self.extract_alternate_titles(
-                            series_data.get("alternateTitles", [])
-                        )
-                        dict_with_seasons["alternate_titles"] = alternate_titles
-                except Exception as e:
-                    logger.error(
-                        f"Error fetching series data for ID {series_id}, title={title}: {e}"
-                    )
-            else:
-                dict_with_seasons["alternate_titles"] = []
+            # ugly to access the protected member, but needed for full data to avoid extra API calls
+            series_data = media_object._data
+            tmdb_id = str(series_data.get("tmdbId", 0))
+            dict_with_seasons["tmdb_id"] = tmdb_id
+            if series_data:
+                alternate_titles = self.extract_alternate_titles(
+                    series_data.get("alternateTitles", [])
+                )
+                dict_with_seasons["alternate_titles"] = alternate_titles
             dict_with_seasons["title"] = f"{dict_with_seasons['arr_title']} ({dict_with_seasons['media_year']})"
             if tmdb_id != "0":
                 dict_with_seasons["title"] = f"{dict_with_seasons['title']} {{tmdb-{tmdb_id}}}"
@@ -96,12 +87,9 @@ class Media:
         return titles_with_seasons
 
     def get_movies_with_years(
-        self, all_movie_objects: list[Movie], instance_name: str, logger,
-        skip_alternate_metadata: bool = False
-
+        self, all_movie_objects: list[Movie], instance_name: str, logger
     ) -> list[dict[str, str | list[str]]]:
         titles_with_years = []
-
         for media_object in all_movie_objects:
             dict_with_years = {
                 "title": "",
@@ -121,24 +109,15 @@ class Media:
             has_file = media_object.hasFile
             imdb_id = str(media_object.imdbId)
             tmdb_id = str(media_object.tmdbId)
-
-            if not skip_alternate_metadata:
-                try:
-                    raw_api = media_object._raw
-                    movie_data = raw_api.get_movie_id(movie_id)
-                    alternate_titles = self.extract_movie_alternate_titles(
-                        movie_data.get("alternateTitles", [])
-                    )
-                    dict_with_years["alternate_titles"] = alternate_titles
-                    secondary_year = movie_data.get("secondaryYear", None)
-                    if secondary_year:
-                        dict_with_years["years"].append(str(secondary_year))
-                except Exception as e:
-                    logger.error(
-                        f"Error fetching movie data for ID {movie_id}, title={title}: {e}"
-                    )
-            else:
-                dict_with_years["alternate_titles"] = []
+            # ugly to access the protected member, but needed for full data to avoid extra API calls
+            movie_data = media_object._data
+            alternate_titles = self.extract_movie_alternate_titles(
+                movie_data.get("alternateTitles", [])
+            )
+            dict_with_years["alternate_titles"] = alternate_titles
+            secondary_year = movie_data.get("secondaryYear", None)
+            if secondary_year:
+                dict_with_years["years"].append(str(secondary_year))
             dict_with_years["arr_title"] = title
             dict_with_years["status"] = status
             dict_with_years["has_file"] = has_file
@@ -193,13 +172,12 @@ class Radarr(Media):
             raise e
 
     # memoize this
-    def get_movies_info(self, skip_alternate_metadata: bool = False):
+    def get_movies_info(self):
         if not self.movies:
             self.movies = self.get_movies_with_years(
                 self.all_movie_objects,
                 self.instance_name,
-                self.logger,
-                skip_alternate_metadata,
+                self.logger
             )
         return self.movies
 
@@ -234,13 +212,12 @@ class Sonarr(Media):
             raise e
 
     # memoize this
-    def get_series_info(self, skip_alternate_metadata: bool = False):
+    def get_series_info(self):
         if not self.series:
             self.series = self.get_series_with_seasons(
                 self.logger,
                 self.all_series_objects,
-                self.instance_name,
-                skip_alternate_metadata
+                self.instance_name
             )
         return self.series
 

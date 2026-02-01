@@ -12,12 +12,12 @@ from Payloads.unmatched_assets_payload import Payload as UnmatchedAssetsPayload
 
 def get_combined_media_dict(
     radarr_instances: dict[str, Radarr], sonarr_instances: dict[str, Sonarr],
-    skip_alternate_metadata: bool = False
+    logger: Logger
 ) -> dict:
     combined_series_dict = {}
     combined_movies_dict = {}
     for radarr in radarr_instances.values():
-        for movie in radarr.get_movies_info(skip_alternate_metadata): # need to determine if we should skip other metadata here
+        for movie in radarr.get_movies_info():
             movie_title = movie["title"]
             if movie_title not in combined_movies_dict:
                 combined_movies_dict[movie_title] = movie
@@ -28,7 +28,7 @@ def get_combined_media_dict(
                 ):
                     existing_movie["has_file"] = True
     for sonarr in sonarr_instances.values():
-        for series in sonarr.get_series_info(skip_alternate_metadata): # need to determine if we should skip other metadata here
+        for series in sonarr.get_series_info():
             series_title = series["title"]
             if series_title not in combined_series_dict:
                 combined_series_dict[series_title] = series
