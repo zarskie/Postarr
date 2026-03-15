@@ -28,6 +28,7 @@ black = "^24.8.0"
 djlint = "^1.35.2"
 setuptools = "^75.0.0"
 pynvim = "^0.5.0"
+python-dotenv = "^1.2.2"
 
 [build-system]
 requires = ["poetry-core"]

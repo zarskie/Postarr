@@ -7,3 +7,8 @@ class SonarrInstance(db.Model):
     instance_name = db.Column(db.String, nullable=True)
     url = db.Column(db.String, nullable=True)
     api_key = db.Column(db.String, nullable=True)
+
+    def __init__(self, instance_name, url, api_key):
+        self.instance_name = instance_name
+        self.url = url
+        self.api_key = api_key

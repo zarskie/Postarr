@@ -3,7 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pprint import pformat
 from time import sleep
 
-from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from flask import Flask, send_from_directory
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -24,15 +27,107 @@ global_config = Config()
 db = SQLAlchemy()
 migrate = Migrate()
 executor = ThreadPoolExecutor(max_workers=3)
+scheduler = BackgroundScheduler()
 
 # define all loggers
 daps_logger = get_daps_logger()
 
 
+def create_job_wrapper(func, sched_id, app_instance):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        update_single_schedule_next_run(app_instance, sched_id)
+        return result
+
+    return wrapper
+
+
+def update_single_schedule_next_run(app, schedule_id):
+    with app.app_context():
+        try:
+            from daps_webui import models
+
+            schedule = models.Schedule.query.get(schedule_id)
+            if schedule:
+                job = scheduler.get_job(f"{schedule.module}-{schedule.id}")
+                if job:
+                    next_run = getattr(job, "next_run_time", None)
+                    if next_run:
+                        schedule.next_run = next_run.strftime("%b %d, %Y %I:%M %p")
+                        db.session.commit()
+                        daps_logger.debug(
+                            f"Updated next run for {schedule.module}: {schedule.next_run}"
+                        )
+        except Exception as e:
+            daps_logger.error(f"Error updating single next run: {e}")
+
+
+def load_schedules_from_db(app):
+    with app.app_context():
+        try:
+            from daps_webui import models
+
+            scheduler.remove_all_jobs()
+
+            MODULE_JOBS = {
+                "poster-renamerr": lambda: run_renamer_task(app),
+                "unmatched-assets": lambda: run_unmatched_assets_task(app),
+                "plex-uploaderr": lambda: run_plex_uploaderr_task(app),
+                "drive-sync": lambda: run_drive_sync_task(app),
+            }
+            schedules = models.Schedule.query.all()
+            for schedule in schedules:
+                job_func = MODULE_JOBS.get(schedule.module)
+                if not job_func:
+                    daps_logger.warning(f"Unknown module: {schedule.module}")
+                    continue
+                if schedule.schedule_type == "cron":
+                    trigger = CronTrigger.from_crontab(schedule.schedule_value)
+                elif schedule.schedule_type == "interval":
+                    minutes = int(schedule.schedule_value)
+                    trigger = IntervalTrigger(minutes=minutes)
+                else:
+                    daps_logger.warning(
+                        f"Unknown schedule type: {schedule.schedule_type}"
+                    )
+                    continue
+
+                scheduler.add_job(
+                    func=create_job_wrapper(job_func, schedule.id, app),
+                    trigger=trigger,
+                    id=f"{schedule.module}-{schedule.id}",
+                    replace_existing=True,
+                )
+        except Exception as e:
+            daps_logger.error(f"Error loading schedules: {e}")
+
+
+def update_next_run_times(app):
+    with app.app_context():
+        try:
+            from daps_webui import models
+
+            schedules = models.Schedule.query.all()
+            for schedule in schedules:
+                job = scheduler.get_job(f"{schedule.module}-{schedule.id}")
+                if job:
+                    next_run = getattr(job, "next_run_time", None)
+                    if next_run:
+                        schedule.next_run = next_run.strftime("%b %d, %Y %I:%M %p")
+                    else:
+                        schedule.next_run = "Pending"
+                else:
+                    schedule.next_run = "N/A"
+            db.session.commit()
+        except Exception as e:
+            daps_logger.error(f"Error updating next run times: {e}")
+
+
 def create_app() -> Flask:
     # init flask app
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=None)
     app.config.from_object(global_config)
+    react_folder = os.path.join(app.root_path, "..", "frontend", "dist")
 
     # initiate database
     db.init_app(app)
@@ -49,79 +144,126 @@ def create_app() -> Flask:
             daps_logger.info("WAL mode enabled for SQLite database")
 
     # import needed blueprints
-    from daps_webui.views.home.home import home
     from daps_webui.views.poster_renamer.poster_renamer import poster_renamer
     from daps_webui.views.settings.settings import settings
 
-    # register blueprints
-    app.register_blueprint(home)
-    app.register_blueprint(settings)
-    app.register_blueprint(poster_renamer)
+    app.register_blueprint(settings, url_prefix="/api/settings")
+    app.register_blueprint(poster_renamer, url_prefix="/api/poster-renamer")
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_react(path):
+        file_path = os.path.join(react_folder, path)
+        if path != "" and os.path.exists(file_path):
+            return send_from_directory(react_folder, path)
+        return send_from_directory(react_folder, "index.html")
 
     return app
 
 
-def run_renamer_task(webhook_item: dict | None = None):
-    from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
+def run_renamer_task(app, webhook_item: dict | None = None):
+    with app.app_context():
+        from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
 
-    try:
-        radarr = get_instances(RadarrInstance())
-        sonarr = get_instances(SonarrInstance())
-        plex = get_instances(PlexInstance())
-        poster_renamer_payload = webui_utils.create_poster_renamer_payload(
-            radarr, sonarr, plex
-        )
-        daps_logger.debug("Poster Renamerr Payload:")
-        daps_logger.debug(pformat(poster_renamer_payload))
+        try:
+            radarr = get_instances(RadarrInstance)
+            sonarr = get_instances(SonarrInstance)
+            plex = get_instances(PlexInstance)
+            poster_renamer_payload = webui_utils.create_poster_renamer_payload(
+                radarr, sonarr, plex
+            )
+            daps_logger.debug("Poster Renamerr Payload:")
+            daps_logger.debug(pformat(poster_renamer_payload))
 
-        job_id = progress_instance.add_job(job_name=Settings.POSTER_RENAMERR.value)
-        daps_logger.info(f"Job Poster Renamerr: '{job_id}' added.")
+            job_id = progress_instance.add_job(job_name=Settings.POSTER_RENAMERR.value)
+            daps_logger.info(f"Job Poster Renamerr: '{job_id}' added.")
 
-        renamer = PosterRenamerr(poster_renamer_payload)
+            renamer = PosterRenamerr(poster_renamer_payload)
 
-        def check_borders() -> bool:
-            from daps_webui.utils.database import Database
+            def check_borders() -> bool:
+                from daps_webui.utils.database import Database
 
-            with app.app_context():
-                db_instance = Database(db, daps_logger)
-                first_file_settings = db_instance.get_first_file_settings()
-                if not first_file_settings:
-                    return False
-                return (
-                    first_file_settings.get("border_setting")
-                    != poster_renamer_payload.border_setting
-                    or first_file_settings.get("custom_color")
-                    != poster_renamer_payload.custom_color
-                )
-
-        def remove_job():
-            try:
-                progress_instance(job_id, 100, ProgressState.COMPLETED)
-            except Exception as e:
-                daps_logger.error(f"Error removing job '{job_id}': {e}")
-            finally:
-                sleep(2)
-                progress_instance.remove_job(job_id)
-                daps_logger.info(f"Poster Renamerr Job: '{job_id}' has been removed")
-
-        def run_renamerr_callback(fut):
-            try:
-                daps_logger.info("Renamerr task completed")
-                media_dict = fut.result()
-                if poster_renamer_payload.unmatched_assets:
-                    unmatched_future = executor.submit(
-                        handle_unmatched_assets_task, radarr, sonarr, plex, chained=True
+                with app.app_context():
+                    db_instance = Database(db, daps_logger)
+                    first_file_settings = db_instance.get_first_file_settings()
+                    if not first_file_settings:
+                        return False
+                    return (
+                        first_file_settings.get("border_setting")
+                        != poster_renamer_payload.border_setting
+                        or first_file_settings.get("custom_color")
+                        != poster_renamer_payload.custom_color
                     )
-                    if poster_renamer_payload.upload_to_plex:
-                        unmatched_future.add_done_callback(
-                            lambda fut: run_unmatched_after_renamerr_callback(
-                                media_dict, fut
-                            )
+
+            def remove_job():
+                try:
+                    progress_instance(job_id, 100, ProgressState.COMPLETED)
+                except Exception as e:
+                    daps_logger.error(f"Error removing job '{job_id}': {e}")
+                finally:
+                    sleep(2)
+                    progress_instance.remove_job(job_id)
+                    daps_logger.info(
+                        f"Poster Renamerr Job: '{job_id}' has been removed"
+                    )
+
+            def run_renamerr_callback(fut):
+                try:
+                    daps_logger.info("Renamerr task completed")
+                    media_dict = fut.result()
+                    if poster_renamer_payload.unmatched_assets:
+                        unmatched_future = executor.submit(
+                            handle_unmatched_assets_task,
+                            radarr,
+                            sonarr,
+                            plex,
+                            chained=True,
                         )
+                        if poster_renamer_payload.upload_to_plex:
+                            unmatched_future.add_done_callback(
+                                lambda fut: run_unmatched_after_renamerr_callback(
+                                    media_dict, fut
+                                )
+                            )
+                        else:
+                            remove_job()
+
+                    elif poster_renamer_payload.upload_to_plex:
+                        if media_dict:
+                            daps_logger.debug(f"Media dict from renamer: {media_dict}")
+                        else:
+                            daps_logger.warning(
+                                "No media dict from renamer. Proceeding with full upload."
+                            )
+                        plex_upload_future = executor.submit(
+                            handle_plex_uploaderr_task,
+                            plex,
+                            radarr,
+                            sonarr,
+                            webhook_item,
+                            media_dict,
+                            chained=True,
+                        )
+                        plex_upload_future.add_done_callback(run_plex_upload_callback)
                     else:
                         remove_job()
 
-                elif poster_renamer_payload.upload_to_plex:
+                except Exception as e:
+                    daps_logger.error(f"Error in plex upload callback: {e}")
+
+            def run_border_replacerr_callback(fut):
+                try:
+                    daps_logger.info("Border replacerr task completed.")
+                    renamer_future = executor.submit(
+                        renamer.run, progress_instance, job_id
+                    )
+                    renamer_future.add_done_callback(run_renamerr_callback)
+                except Exception as e:
+                    daps_logger.error(f"Error in run_border_replacerr_callback: {e}")
+
+            def run_unmatched_after_renamerr_callback(media_dict, fut):
+                try:
+                    daps_logger.info("Unmatched assets task completed.")
                     if media_dict:
                         daps_logger.debug(f"Media dict from renamer: {media_dict}")
                     else:
@@ -138,79 +280,82 @@ def run_renamer_task(webhook_item: dict | None = None):
                         chained=True,
                     )
                     plex_upload_future.add_done_callback(run_plex_upload_callback)
-                else:
-                    remove_job()
-
-            except Exception as e:
-                daps_logger.error(f"Error in plex upload callback: {e}")
-
-        def run_border_replacerr_callback(fut):
-            try:
-                daps_logger.info("Border replacerr task completed.")
-                renamer_future = executor.submit(renamer.run, progress_instance, job_id)
-                renamer_future.add_done_callback(run_renamerr_callback)
-            except Exception as e:
-                daps_logger.error(f"Error in run_border_replacerr_callback: {e}")
-
-        def run_unmatched_after_renamerr_callback(media_dict, fut):
-            try:
-                daps_logger.info("Unmatched assets task completed.")
-                if media_dict:
-                    daps_logger.debug(f"Media dict from renamer: {media_dict}")
-                else:
-                    daps_logger.warning(
-                        "No media dict from renamer. Proceeding with full upload."
+                except Exception as e:
+                    daps_logger.error(
+                        f"Error in run_unmatched_after_renamerr_callback: {e}"
                     )
-                plex_upload_future = executor.submit(
-                    handle_plex_uploaderr_task,
-                    plex,
-                    radarr,
-                    sonarr,
+
+            def run_plex_upload_callback(fut):
+                daps_logger.info("Plex uploaderr task completed.")
+                remove_job()
+
+            def run_unmatched_assets_only_unmatched_callback(fut):
+                try:
+                    daps_logger.info("Unmatched assets task completed.")
+                    if check_borders():
+                        border_replacerr_future = executor.submit(
+                            run_border_replacer_task
+                        )
+                        border_replacerr_future.add_done_callback(
+                            run_border_replacerr_callback
+                        )
+                    else:
+                        renamer_future = executor.submit(
+                            renamer.run, progress_instance, job_id
+                        )
+                        renamer_future.add_done_callback(run_renamerr_callback)
+                except Exception as e:
+                    daps_logger.error(
+                        f"Error in run_unmatched_assets_only_unmatched_callback: {e}"
+                    )
+
+            def run_drive_sync_callback(fut):
+                try:
+                    daps_logger.info("Drive sync task completed.")
+                    if (
+                        poster_renamer_payload.unmatched_assets
+                        and poster_renamer_payload.only_unmatched
+                    ):
+                        unmatched_future = executor.submit(
+                            handle_unmatched_assets_task,
+                            radarr,
+                            sonarr,
+                            plex,
+                            chained=True,
+                        )
+                        unmatched_future.add_done_callback(
+                            run_unmatched_assets_only_unmatched_callback
+                        )
+                    else:
+                        renamer_future = executor.submit(
+                            renamer.run, progress_instance, job_id
+                        )
+                        renamer_future.add_done_callback(run_renamerr_callback)
+                except Exception as e:
+                    daps_logger.error(f"Error in run_drive_sync_callback: {e}")
+
+            if webhook_item:
+                daps_logger.debug("Submitting webhook task to thread pool")
+                future = executor.submit(
+                    renamer.run,
+                    progress_instance,
+                    job_id,
                     webhook_item,
-                    media_dict,
-                    chained=True,
                 )
-                plex_upload_future.add_done_callback(run_plex_upload_callback)
-            except Exception as e:
-                daps_logger.error(
-                    f"Error in run_unmatched_after_renamerr_callback: {e}"
-                )
-
-        def run_plex_upload_callback(fut):
-            daps_logger.info("Plex uploaderr task completed.")
-            remove_job()
-
-        def run_unmatched_assets_only_unmatched_callback(fut):
-            try:
-                daps_logger.info("Unmatched assets task completed.")
-                if check_borders():
-                    border_replacerr_future = executor.submit(run_border_replacer_task)
-                    border_replacerr_future.add_done_callback(
-                        run_border_replacerr_callback
+                future.add_done_callback(run_renamerr_callback)
+            else:
+                if poster_renamer_payload.drive_sync:
+                    daps_logger.info("Starting drive sync task before renamer...")
+                    drive_sync_future = executor.submit(
+                        run_drive_sync_task, app, chained=True
                     )
-                else:
-                    renamer_future = executor.submit(
-                        renamer.run, progress_instance, job_id
-                    )
-                    renamer_future.add_done_callback(run_renamerr_callback)
-            except Exception as e:
-                daps_logger.error(
-                    f"Error in run_unmatched_assets_only_unmatched_callback: {e}"
-                )
-
-        def run_drive_sync_callback(fut):
-            try:
-                daps_logger.info("Drive sync task completed.")
-                if (
+                    drive_sync_future.add_done_callback(run_drive_sync_callback)
+                elif (
                     poster_renamer_payload.unmatched_assets
                     and poster_renamer_payload.only_unmatched
                 ):
                     unmatched_future = executor.submit(
-                        handle_unmatched_assets_task,
-                        radarr,
-                        sonarr,
-                        plex,
-                        chained=True,
+                        handle_unmatched_assets_task, radarr, sonarr, plex, chained=True
                     )
                     unmatched_future.add_done_callback(
                         run_unmatched_assets_only_unmatched_callback
@@ -220,46 +365,16 @@ def run_renamer_task(webhook_item: dict | None = None):
                         renamer.run, progress_instance, job_id
                     )
                     renamer_future.add_done_callback(run_renamerr_callback)
-            except Exception as e:
-                daps_logger.error(f"Error in run_drive_sync_callback: {e}")
 
-        if webhook_item:
-            daps_logger.debug("Submitting webhook task to thread pool")
-            future = executor.submit(
-                renamer.run,
-                progress_instance,
-                job_id,
-                webhook_item,
-            )
-            future.add_done_callback(run_renamerr_callback)
-        else:
-            if poster_renamer_payload.drive_sync:
-                daps_logger.info("Starting drive sync task before renamer...")
-                drive_sync_future = executor.submit(run_drive_sync_task, chained=True)
-                drive_sync_future.add_done_callback(run_drive_sync_callback)
-            elif (
-                poster_renamer_payload.unmatched_assets
-                and poster_renamer_payload.only_unmatched
-            ):
-                unmatched_future = executor.submit(
-                    handle_unmatched_assets_task, radarr, sonarr, plex, chained=True
-                )
-                unmatched_future.add_done_callback(
-                    run_unmatched_assets_only_unmatched_callback
-                )
-            else:
-                renamer_future = executor.submit(renamer.run, progress_instance, job_id)
-                renamer_future.add_done_callback(run_renamerr_callback)
-
-        daps_logger.debug("Returning response: Poster renamer task started")
-        return {
-            "message": "Poster renamer task started",
-            "job_id": job_id,
-            "success": True,
-        }
-    except Exception as e:
-        daps_logger.error(f"Error in Poster Renamer Task: {str(e)}")
-        return {"success": False, "message": str(e)}
+            daps_logger.debug("Returning response: Poster renamer task started")
+            return {
+                "message": "Poster renamer task started",
+                "job_id": job_id,
+                "success": True,
+            }
+        except Exception as e:
+            daps_logger.error(f"Error in Poster Renamer Task: {str(e)}")
+            return {"success": False, "message": str(e)}
 
 
 def run_border_replacer_task(chained: bool = False) -> dict:
@@ -438,33 +553,35 @@ def handle_plex_uploaderr_task(
         }
 
 
-def run_unmatched_assets_task():
-    from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
+def run_unmatched_assets_task(app):
+    with app.app_context():
+        from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
 
-    try:
-        radarr = get_instances(RadarrInstance())
-        sonarr = get_instances(SonarrInstance())
-        plex = get_instances(PlexInstance())
+        try:
+            radarr = get_instances(RadarrInstance)
+            sonarr = get_instances(SonarrInstance)
+            plex = get_instances(PlexInstance)
 
-        return handle_unmatched_assets_task(radarr, sonarr, plex)
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-def run_plex_uploaderr_task():
-    from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
-
-    try:
-        radarr = get_instances(RadarrInstance())
-        sonarr = get_instances(SonarrInstance())
-        plex = get_instances(PlexInstance())
-
-        return handle_plex_uploaderr_task(plex, radarr, sonarr)
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+            return handle_unmatched_assets_task(radarr, sonarr, plex)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
 
 
-def run_drive_sync_task(chained: bool = False) -> dict:
+def run_plex_uploaderr_task(app):
+    with app.app_context():
+        from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
+
+        try:
+            radarr = get_instances(RadarrInstance)
+            sonarr = get_instances(SonarrInstance)
+            plex = get_instances(PlexInstance)
+
+            return handle_plex_uploaderr_task(plex, radarr, sonarr)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+def run_drive_sync_task(app, chained: bool = False) -> dict:
     with app.app_context():
         daps_logger.info(f"run_drive_sync_task called with chained={chained}")
         payload = webui_utils.create_drive_sync_payload()

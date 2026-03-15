@@ -12,6 +12,8 @@ ENV POETRY_VIRTUALENVS_CREATE=false
 
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y rclone curl gosu tzdata && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
     curl -sSL https://install.python-poetry.org | python3 - && \
     chown -R appuser:appgroup "$POETRY_HOME" && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -26,6 +28,9 @@ RUN poetry install --no-root --no-interaction
 
 # Copy the rest of the application code
 COPY . .
+
+WORKDIR /code/frontend
+RUN npm install && npm run build
 
 # Copy the entrypoint script and set it as executable
 COPY entrypoint.sh /entrypoint.sh

@@ -3,9 +3,9 @@ from pathlib import Path
 
 
 class Config:
-    flask_static = Path("/config")
-    logs = Path(flask_static / "logs")
-    database = Path(flask_static / "db")
+    _base = Path(os.environ.get("APP_DATA_DIR", "/config"))
+    logs = _base / "logs"
+    database = _base / "db"
 
     logs.mkdir(exist_ok=True, parents=True)
     database.mkdir(exist_ok=True, parents=True)
