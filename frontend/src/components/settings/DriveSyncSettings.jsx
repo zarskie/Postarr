@@ -978,7 +978,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                       />
                       {activeTooltip === "rcloneConfig" && (
                         <div
-                          className="absolute left-full top-1/2 z-10 ml-2 mt-1 w-96 -translate-y-1/2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs text-gray-300 shadow-lg"
+                          className="absolute left-full top-1/2 z-10 ml-2 mt-1 w-60 -translate-y-1/2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs text-gray-300 shadow-lg sm:w-96"
                           onMouseEnter={cancelHide}
                           onMouseLeave={hideTooltip}
                         >
@@ -988,7 +988,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                             <br />
                           </span>
                           <a
-                            className="text-blue-400"
+                            className="break-all text-blue-400"
                             href="https://github.com/Drazzilb08/daps/wiki/rclone-configuration"
                             target="_blank"
                             rel="noopener noreferrer"
