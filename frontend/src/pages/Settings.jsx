@@ -80,7 +80,7 @@ function Settings() {
     { id: "instances", label: "Instances", icon: KeyRound },
     { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "settings", label: "Settings", icon: Settings2 },
-    { id: "notifications", label: "Notifications", icon: Bell },
+    // { id: "notifications", label: "Notifications", icon: Bell },
   ];
   const moduleNames = {
     "poster-renamerr": "Poster Renamerr",
@@ -606,10 +606,10 @@ function Settings() {
           </div>
         )}
       </div>
-      <h1 className="mb-6 px-2 text-2xl font-bold text-white md:px-0">
+      <h1 className="mb-6 px-2 text-2xl font-bold text-white xl:px-0">
         Settings
       </h1>
-      <div className="mx-2 flex flex-col rounded-lg bg-gray-800 py-2 md:mx-0 md:flex-row">
+      <div className="mx-2 flex flex-col rounded-lg bg-gray-800 py-2 md:flex-row xl:mx-0">
         {/* Left Navigation */}
         <nav className="w-full flex-shrink-0 border-gray-700 md:w-48 md:border-r">
           <ul className="flex flex-col overflow-x-auto text-sm md:flex-col md:overflow-x-visible">
@@ -685,7 +685,7 @@ function Settings() {
               {/* Instance List */}
               <div className="flex flex-col gap-6">
                 {instances.length === 0 ? (
-                  <p className="border-t border-gray-700 bg-gray-800 text-sm text-gray-400 pt-6">
+                  <p className="border-t border-gray-700 bg-gray-800 pt-6 text-sm text-gray-400">
                     No instances configured yet.
                   </p>
                 ) : (
@@ -704,7 +704,7 @@ function Settings() {
                     {instances.map((instance) => (
                       <div
                         key={`${instance.type}-${instance.id}`}
-                        className="flex flex-row items-start justify-between gap-3"
+                        className={`flex flex-row justify-between gap-3 ${expandedInstances.has(instance.url) ? "items-start" : "items-center"}`}
                       >
                         <div className="min-w-0 flex-1">
                           <button
@@ -744,7 +744,7 @@ function Settings() {
                           </span>
                           <button
                             onClick={() => handleEditInstance(instance)}
-                            className="w-auto shrink-0 items-start rounded-md px-3 py-1.5 text-sm text-white transition-colors hover:text-blue-500"
+                            className="w-auto shrink-0 rounded-md px-3 py-1.5 text-sm text-white transition-colors hover:text-blue-500"
                           >
                             Edit
                           </button>

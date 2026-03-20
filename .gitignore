@@ -16,4 +16,4 @@ eslint.config.js
 docker_commands.txt
 docker-compose.yml
 config/original_posters/
-config/rclone.log
+config/rclone*

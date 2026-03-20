@@ -115,7 +115,7 @@ const PlexUploaderrSettings = ({ onDirtyChange }) => {
             <div className="flex flex-col">
               <span className="text-sm text-white">Reapply Posters</span>
               <span className="text-xs text-gray-400">
-                Force reapply all posters in Plex
+                Force re-upload posters in Plex
               </span>
             </div>
           </label>

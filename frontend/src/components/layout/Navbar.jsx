@@ -7,7 +7,7 @@ function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="mx-auto max-w-6xl px-2 md:px-0">
+    <div className="mx-auto max-w-6xl px-2 xl:px-0">
       <nav className="border-b border-gray-800 text-gray-400">
         <div className="flex items-center justify-between py-4">
           <img src="/logo.png" alt="/Logo" className="h-8 w-auto" />
@@ -19,7 +19,7 @@ function Navbar() {
                   location.pathname === "/" ? "text-white" : ""
                 }`}
               >
-                Poster Renamerr
+                Dashboard
               </Link>
             </li>
             <li>
@@ -32,16 +32,16 @@ function Navbar() {
                 Settings
               </Link>
             </li>
-            <li>
-              <Link
-                to="/logs"
-                className={`block cursor-pointer rounded-full px-3 py-2 transition-colors duration-200 hover:bg-gray-600 hover:text-white ${
-                  location.pathname === "/logs" ? "text-white" : ""
-                }`}
-              >
-                Logs
-              </Link>
-            </li>
+            {/* <li> */}
+            {/*   <Link */}
+            {/*     to="/logs" */}
+            {/*     className={`block cursor-pointer rounded-full px-3 py-2 transition-colors duration-200 hover:bg-gray-600 hover:text-white ${ */}
+            {/*       location.pathname === "/logs" ? "text-white" : "" */}
+            {/*     }`} */}
+            {/*   > */}
+            {/*     Logs */}
+            {/*   </Link> */}
+            {/* </li> */}
           </ul>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -61,7 +61,7 @@ function Navbar() {
                     location.pathname === "/" ? "bg-gray-700 text-white" : ""
                   }`}
                 >
-                  Poster Renamerr
+                  Dashboard
                 </Link>
               </li>
               <li>
@@ -77,19 +77,19 @@ function Navbar() {
                   Settings
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/logs"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`block cursor-pointer rounded-md px-3 py-2 transition-colors duration-200 hover:bg-gray-600 hover:text-white ${
-                    location.pathname === "/logs"
-                      ? "bg-gray-700 text-white"
-                      : ""
-                  }`}
-                >
-                  Logs
-                </Link>
-              </li>
+              {/* <li> */}
+              {/*   <Link */}
+              {/*     to="/logs" */}
+              {/*     onClick={() => setIsMobileMenuOpen(false)} */}
+              {/*     className={`block cursor-pointer rounded-md px-3 py-2 transition-colors duration-200 hover:bg-gray-600 hover:text-white ${ */}
+              {/*       location.pathname === "/logs" */}
+              {/*         ? "bg-gray-700 text-white" */}
+              {/*         : "" */}
+              {/*     }`} */}
+              {/*   > */}
+              {/*     Logs */}
+              {/*   </Link> */}
+              {/* </li> */}
             </ul>
           </div>
         )}

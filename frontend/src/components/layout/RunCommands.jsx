@@ -11,10 +11,13 @@ const RunCommands = () => {
     matchAltTitles: false,
     driveSync: false,
     reapplyPosters: false,
+    showAllUnmatched: false,
+    hideCollections: false,
   });
   const [logLevel, setLogLevel] = useState("info");
   const [jobId, setJobId] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [jobRunning, setJobRunning] = useState(null);
   const pollRef = useRef(null);
 
   const fetchedModules = useRef(new Set());
@@ -46,6 +49,7 @@ const RunCommands = () => {
                 settings: { reapplyPosters: settings.reapplyPosters, logLevel },
               }
             : { settings: { logLevel } };
+      setJobRunning(true);
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -58,9 +62,11 @@ const RunCommands = () => {
         setProgress(0);
         startPolling(result.job_id);
       } else if (!result.success) {
+        setJobRunning(null);
         alert(result.message);
       }
     } catch (error) {
+      setJobRunning(null);
       console.error("Error running command:", error);
     }
   };
@@ -79,6 +85,7 @@ const RunCommands = () => {
         setProgress(result.value);
         if (result.state === "completed" || result.value === 100) {
           clearInterval(pollRef.current);
+          setJobRunning(null);
           setTimeout(() => {
             setJobId(null);
             setProgress(null);
@@ -133,6 +140,11 @@ const RunCommands = () => {
           }
           if (selectedModule === "unmatched-assets") {
             setLogLevel(d.log_level ?? "info");
+            setSettings((prev) => ({
+              ...prev,
+              showAllUnmatched: d.show_all_unmatched ?? false,
+              hideCollections: d.hide_collections ?? false,
+            }));
           }
           if (selectedModule === "drive-sync") {
             setLogLevel(d.log_level ?? "info");
@@ -152,23 +164,21 @@ const RunCommands = () => {
       >
         {isExpanded && (
           <>
-            <div className="mb-1 mt-2 flex items-center justify-between p-4">
+            <div className="mb-1 mt-2 flex items-start justify-between p-4">
               <div className="flex flex-col">
                 <h3 className="mb-1 text-lg font-semibold text-white">
                   Command Execution
                 </h3>
                 <span className="text-xs text-gray-400">
-                  These settings override saved settings for this run
+                  These settings will override saved settings for this run
                 </span>
               </div>
-              <div className="flex">
-                <button
-                  onClick={handleToggle}
-                  className="rounded-md p-2 text-gray-400 transition-colors hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+              <button
+                onClick={handleToggle}
+                className="rounded-md text-gray-400 transition-colors hover:text-white"
+              >
+                <X size={20} />
+              </button>
             </div>
             <div className="flex flex-col border-t border-gray-800 2xl:flex-row">
               <div className="flex flex-col items-center 2xl:mb-2 2xl:flex-row">
@@ -226,7 +236,7 @@ const RunCommands = () => {
               </div>
               {selectedModule === "poster-renamerr" && (
                 <>
-                  <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
+                  <div className="mt-2 grid grid-cols-1 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
                     <div className="px-5 py-2">
                       <label className="flex cursor-pointer items-start gap-3">
                         <input
@@ -246,6 +256,29 @@ const RunCommands = () => {
                           </span>
                           <span className="text-xs text-gray-400">
                             Run unmatched assets after poster renamerr
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                    <div className="px-5 py-2">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={settings.plexUpload}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              plexUpload: e.target.checked,
+                            })
+                          }
+                          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm text-white">
+                            Plex Upload
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            Run plex uploaderr after poster renamerr
                           </span>
                         </div>
                       </label>
@@ -298,29 +331,6 @@ const RunCommands = () => {
                       <label className="flex cursor-pointer items-start gap-3">
                         <input
                           type="checkbox"
-                          checked={settings.plexUpload}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              plexUpload: e.target.checked,
-                            })
-                          }
-                          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-sm text-white">
-                            Plex Upload
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            Run plex uploaderr after poster renamerr
-                          </span>
-                        </div>
-                      </label>
-                    </div>
-                    <div className="px-5 py-2">
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <input
-                          type="checkbox"
                           checked={settings.matchAltTitles}
                           onChange={(e) =>
                             setSettings({
@@ -344,8 +354,8 @@ const RunCommands = () => {
                 </>
               )}
               {selectedModule === "plex-uploaderr" && (
-                <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
-                  <div className="px-4 py-2">
+                <div className="mt-2 grid grid-cols-1 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
+                  <div className="px-5 py-2">
                     <label className="flex cursor-pointer items-start gap-3">
                       <input
                         type="checkbox"
@@ -363,7 +373,57 @@ const RunCommands = () => {
                           Reapply Posters
                         </span>
                         <span className="text-xs text-gray-400">
-                          Force reapply posters in Plex
+                          Force re-upload posters in Plex
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+              {selectedModule === "unmatched-assets" && (
+                <div className="mt-2 grid grid-cols-1 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
+                  <div className="px-5 py-2">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={settings.showAllUnmatched}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            showAllUnmatched: e.target.checked,
+                          })
+                        }
+                        className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm text-white">
+                          Show All Unmatched
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Show unmatched assets for missing media
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="px-5 py-2">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={settings.hideCollections}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            hideCollections: e.target.checked,
+                          })
+                        }
+                        className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm text-white">
+                          Hide Collections
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Hide collections from unmatched assets
                         </span>
                       </div>
                     </label>
@@ -373,11 +433,12 @@ const RunCommands = () => {
               {selectedModule && (
                 <div className="mb-2 mt-2 flex w-full self-end px-4 py-2 lg:ml-auto lg:w-auto">
                   <button
-                    className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-600 px-2 py-1.5 text-sm text-white transition-colors hover:bg-blue-700"
+                    className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-600 px-2 py-1.5 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={handleRun}
+                    disabled={jobRunning}
                   >
                     <Play size={14} />
-                    Run commands
+                    {jobRunning ? "Running..." : "Run commands"}
                   </button>
                 </div>
               )}

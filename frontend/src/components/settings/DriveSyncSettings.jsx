@@ -560,7 +560,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                 (gdrive) => (
                   <div
                     key={`${gdrive.id}`}
-                    className="mt-1 flex flex-row items-start justify-between gap-3"
+                    className={`mt-1 flex flex-row justify-between gap-3 ${expandedDrives.has(gdrive.drive_location) ? "items-start" : "items-center"}`}
                   >
                     <div className="min-w-0 flex-1">
                       <button

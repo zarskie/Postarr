@@ -881,56 +881,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             </div>
           </div>
         </div>
-        <div className="mb-2 grid grid-cols-1 gap-4 border-b border-gray-600 py-5 md:grid-cols-2 lg:grid-cols-3">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={settings.assetFolders}
-              onChange={(e) =>
-                setSettings({ ...settings, assetFolders: e.target.checked })
-              }
-              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-            />
-            <div className="flex flex-col">
-              <span className="text-sm text-white">Asset Folders</span>
-              <span className="text-xs text-gray-400">
-                Enable asset folder configuration for posters
-              </span>
-            </div>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={settings.cleanAssets}
-              onChange={(e) =>
-                setSettings({ ...settings, cleanAssets: e.target.checked })
-              }
-              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-            />
-            <div className="flex flex-col">
-              <span className="text-sm text-white">Clean Assets</span>
-              <span className="text-xs text-gray-400">
-                Remove orphaned poster files upon run completion
-              </span>
-            </div>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={settings.unmatchedAssets}
-              onChange={(e) =>
-                setSettings({ ...settings, unmatchedAssets: e.target.checked })
-              }
-              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-            />
-            <div className="flex flex-col">
-              <span className="text-sm text-white">Unmatched Assets</span>
-              <span className="text-xs text-gray-400">
-                Run unmatched assets upon run completion
-              </span>
-            </div>
-          </label>
-
+        <div className="grid grid-cols-1 gap-x-2 gap-y-6 border-b border-gray-600 py-5 md:grid-cols-2 lg:grid-cols-3">
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -987,20 +938,51 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
-              checked={settings.unmatchedOnly}
+              checked={settings.assetFolders}
               onChange={(e) =>
-                setSettings({ ...settings, unmatchedOnly: e.target.checked })
+                setSettings({ ...settings, assetFolders: e.target.checked })
               }
               className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
             />
             <div className="flex flex-col">
-              <span className="text-sm text-white">Unmatched Only</span>
+              <span className="text-sm text-white">Asset Folders</span>
               <span className="text-xs text-gray-400">
-                Enable running renamerr on only unmatched assets
+                Enable asset folder configuration for posters
               </span>
             </div>
           </label>
-
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={settings.cleanAssets}
+              onChange={(e) =>
+                setSettings({ ...settings, cleanAssets: e.target.checked })
+              }
+              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm text-white">Clean Assets</span>
+              <span className="text-xs text-gray-400">
+                Remove orphaned poster files
+              </span>
+            </div>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={settings.unmatchedAssets}
+              onChange={(e) =>
+                setSettings({ ...settings, unmatchedAssets: e.target.checked })
+              }
+              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm text-white">Unmatched Assets</span>
+              <span className="text-xs text-gray-400">
+                Run unmatched assets after poster renamerr
+              </span>
+            </div>
+          </label>
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -1013,7 +995,23 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             <div className="flex flex-col">
               <span className="text-sm text-white">Plex Upload</span>
               <span className="text-xs text-gray-400">
-                Run plex uploaderr upon run completion
+                Run plex uploaderr after poster renamerr
+              </span>
+            </div>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={settings.driveSync}
+              onChange={(e) =>
+                setSettings({ ...settings, driveSync: e.target.checked })
+              }
+              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm text-white">Drive Sync</span>
+              <span className="text-xs text-gray-400">
+                Run drive sync before poster renamerr
               </span>
             </div>
           </label>
@@ -1036,6 +1034,22 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
+              checked={settings.unmatchedOnly}
+              onChange={(e) =>
+                setSettings({ ...settings, unmatchedOnly: e.target.checked })
+              }
+              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm text-white">Unmatched Only</span>
+              <span className="text-xs text-gray-400">
+                Run poster renamerr on only unmatched assets
+              </span>
+            </div>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
               checked={settings.replaceBorder}
               onChange={(e) =>
                 setSettings({ ...settings, replaceBorder: e.target.checked })
@@ -1045,31 +1059,15 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             <div className="flex flex-col">
               <span className="text-sm text-white">Replace Border</span>
               <span className="text-xs text-gray-400">
-                Enable replacing borders on poster files
-              </span>
-            </div>
-          </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={settings.driveSync}
-              onChange={(e) =>
-                setSettings({ ...settings, driveSync: e.target.checked })
-              }
-              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-            />
-            <div className="flex flex-col">
-              <span className="text-sm text-white">Drive Sync</span>
-              <span className="text-xs text-gray-400">
-                Run drive sync before renamerr run
+                Enable replacing borders on assets
               </span>
             </div>
           </label>
         </div>
         {settings.replaceBorder && (
-          <div className="flex w-full flex-col items-start justify-between gap-2 border-b border-gray-600 py-2 md:flex-row md:items-start">
+          <div className="flex w-full flex-col items-start justify-between border-b border-gray-600 py-2 md:flex-row md:items-start md:gap-2">
             <div className="flex w-full flex-col">
-              <h2 className="mb-2 text-sm font-medium text-white">
+              <h2 className="mb-2 mt-2 text-sm font-medium text-white">
                 Border Type
                 <span className="text-xs font-medium text-red-500"> *</span>
               </h2>
@@ -1123,7 +1121,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             </div>
             {borderType === "custom" && (
               <div className="flex w-full flex-col">
-                <h2 className="mb-2 text-sm font-medium text-white">
+                <h2 className="mb-2 text-sm font-medium text-white sm:mt-2">
                   Hex Code
                   <span className="text-xs font-medium text-red-500"> *</span>
                 </h2>

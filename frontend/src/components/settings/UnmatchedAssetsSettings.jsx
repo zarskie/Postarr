@@ -108,7 +108,7 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 border-b border-gray-600 py-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-2 gap-y-6 border-b border-gray-600 py-5 lg:grid-cols-2">
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -121,7 +121,7 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
             <div className="flex flex-col">
               <span className="text-sm text-white">Show All Unmatched</span>
               <span className="text-xs text-gray-400">
-                Enable showing unmatched assets for un-downloaded media
+                Show unmatched assets for missing media
               </span>
             </div>
           </label>
