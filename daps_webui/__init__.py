@@ -1,4 +1,6 @@
+import logging
 import os
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pprint import pformat
 from time import sleep
@@ -13,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from daps_webui.config.config import Config
 from daps_webui.utils import webui_utils
 from daps_webui.utils.logger_utils import get_daps_logger
-from daps_webui.utils.webui_utils import get_instances
+from daps_webui.utils.webui_utils import LOG_LEVELS, get_instances
 from DapsEX.border_replacerr import BorderReplacerr
 from DapsEX.drive_sync import DriveSync
 from DapsEX.plex_upload import PlexUploaderr
@@ -161,7 +163,9 @@ def create_app() -> Flask:
     return app
 
 
-def run_renamer_task(app, webhook_item: dict | None = None):
+def run_renamer_task(
+    app, webhook_item: dict | None = None, overrides: dict | None = None
+):
     with app.app_context():
         from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
 
@@ -172,6 +176,24 @@ def run_renamer_task(app, webhook_item: dict | None = None):
             poster_renamer_payload = webui_utils.create_poster_renamer_payload(
                 radarr, sonarr, plex
             )
+            if overrides:
+                if "logLevel" in overrides:
+                    log_level_str = overrides["logLevel"].upper()
+                    log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                    poster_renamer_payload.log_level = log_level
+                if "unmatchedAssets" in overrides:
+                    poster_renamer_payload.unmatched_assets = overrides[
+                        "unmatchedAssets"
+                    ]
+                if "unmatchedOnly" in overrides:
+                    poster_renamer_payload.only_unmatched = overrides["unmatchedOnly"]
+                if "plexUpload" in overrides:
+                    poster_renamer_payload.upload_to_plex = overrides["plexUpload"]
+                if "matchAltTitles" in overrides:
+                    poster_renamer_payload.match_alt = overrides["matchAltTitles"]
+                if "driveSync" in overrides:
+                    poster_renamer_payload.drive_sync = overrides["driveSync"]
+
             daps_logger.debug("Poster Renamerr Payload:")
             daps_logger.debug(pformat(poster_renamer_payload))
 
@@ -214,6 +236,7 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                     if poster_renamer_payload.unmatched_assets:
                         unmatched_future = executor.submit(
                             handle_unmatched_assets_task,
+                            app,
                             radarr,
                             sonarr,
                             plex,
@@ -237,6 +260,7 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                             )
                         plex_upload_future = executor.submit(
                             handle_plex_uploaderr_task,
+                            app,
                             plex,
                             radarr,
                             sonarr,
@@ -272,6 +296,7 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                         )
                     plex_upload_future = executor.submit(
                         handle_plex_uploaderr_task,
+                        app,
                         plex,
                         radarr,
                         sonarr,
@@ -294,7 +319,7 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                     daps_logger.info("Unmatched assets task completed.")
                     if check_borders():
                         border_replacerr_future = executor.submit(
-                            run_border_replacer_task
+                            run_border_replacer_task, app
                         )
                         border_replacerr_future.add_done_callback(
                             run_border_replacerr_callback
@@ -318,6 +343,7 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                     ):
                         unmatched_future = executor.submit(
                             handle_unmatched_assets_task,
+                            app,
                             radarr,
                             sonarr,
                             plex,
@@ -355,7 +381,12 @@ def run_renamer_task(app, webhook_item: dict | None = None):
                     and poster_renamer_payload.only_unmatched
                 ):
                     unmatched_future = executor.submit(
-                        handle_unmatched_assets_task, radarr, sonarr, plex, chained=True
+                        handle_unmatched_assets_task,
+                        app,
+                        radarr,
+                        sonarr,
+                        plex,
+                        chained=True,
                     )
                     unmatched_future.add_done_callback(
                         run_unmatched_assets_only_unmatched_callback
@@ -377,79 +408,98 @@ def run_renamer_task(app, webhook_item: dict | None = None):
             return {"success": False, "message": str(e)}
 
 
-def run_border_replacer_task(chained: bool = False) -> dict:
+def run_border_replacer_task(
+    app, overrides: dict | None = None, chained: bool = False
+) -> dict:
     try:
-        from daps_webui.utils.database import Database
+        with app.app_context():
+            from daps_webui.utils.database import Database
 
-        db_instance = Database(db, daps_logger)
-        first_file_settings = db_instance.get_first_file_settings()
+            db_instance = Database(db, daps_logger)
+            first_file_settings = db_instance.get_first_file_settings()
 
-        border_replacerr_payload = webui_utils.create_border_replacer_payload()
-        border_setting = border_replacerr_payload.border_setting
-        custom_color = border_replacerr_payload.custom_color
+            border_replacerr_payload = webui_utils.create_border_replacer_payload()
+            if overrides:
+                if "logLevel" in overrides:
+                    log_level_str = overrides["logLevel"].upper()
+                    log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                    border_replacerr_payload.log_level = log_level
 
-        def remove_job_cb(fut):
-            try:
-                fut.result()
-            except Exception as e:
-                daps_logger.error(f"Error removing job '{job_id}': {e}")
-            finally:
-                sleep(2)
+            border_setting = border_replacerr_payload.border_setting
+            custom_color = border_replacerr_payload.custom_color
+
+            def remove_job_cb(fut):
+                try:
+                    fut.result()
+                except Exception as e:
+                    daps_logger.error(f"Error removing job '{job_id}': {e}")
+                finally:
+                    sleep(2)
+                    progress_instance.remove_job(job_id)
+                    daps_logger.info(
+                        f"Border Replacer Job: '{job_id}' has been removed"
+                    )
+
+            if first_file_settings:
+                current_border_setting = first_file_settings.get("border_setting")
+                current_custom_color = first_file_settings.get("custom_color")
+
+                if (
+                    current_border_setting == border_setting
+                    and current_custom_color == custom_color
+                ):
+                    daps_logger.info(
+                        "Skipping task: Border and color settings already applied to files."
+                    )
+                    return {
+                        "message": "Border and color settings already applied. Task skipped.",
+                        "success": True,
+                        "job_id": None,
+                    }
+
+            job_id = progress_instance.add_job(Settings.BORDER_REPLACERR.value)
+            daps_logger.debug(f"Job Border Replacerr: '{job_id}' added.")
+            daps_logger.debug("Border Replacerr Payload:")
+            daps_logger.debug(pformat(border_replacerr_payload))
+            border_replacerr = BorderReplacerr(
+                custom_color=None, payload=border_replacerr_payload
+            )
+            if chained:
+                border_replacerr.replace_current_assets(progress_instance, job_id)
                 progress_instance.remove_job(job_id)
                 daps_logger.info(f"Border Replacer Job: '{job_id}' has been removed")
-
-        if first_file_settings:
-            current_border_setting = first_file_settings.get("border_setting")
-            current_custom_color = first_file_settings.get("custom_color")
-
-            if (
-                current_border_setting == border_setting
-                and current_custom_color == custom_color
-            ):
-                daps_logger.info(
-                    "Skipping task: Border and color settings already applied to files."
+            else:
+                daps_logger.debug("Submitting border replacerr task to thread pool")
+                future = executor.submit(
+                    border_replacerr.replace_current_assets, progress_instance, job_id
                 )
-                return {
-                    "message": "Border and color settings already applied. Task skipped.",
-                    "success": True,
-                    "job_id": None,
-                }
+                future.add_done_callback(remove_job_cb)
 
-        job_id = progress_instance.add_job(Settings.BORDER_REPLACERR.value)
-        daps_logger.debug(f"Job Border Replacerr: '{job_id}' added.")
-        daps_logger.debug("Border Replacerr Payload:")
-        daps_logger.debug(pformat(border_replacerr_payload))
-        border_replacerr = BorderReplacerr(
-            custom_color=None, payload=border_replacerr_payload
-        )
-        if chained:
-            border_replacerr.replace_current_assets(progress_instance, job_id)
-            progress_instance.remove_job(job_id)
-            daps_logger.info(f"Border Replacer Job: '{job_id}' has been removed")
-        else:
-            daps_logger.debug("Submitting border replacerr task to thread pool")
-            future = executor.submit(
-                border_replacerr.replace_current_assets, progress_instance, job_id
-            )
-            future.add_done_callback(remove_job_cb)
-
-        return {
-            "message": "Border replacer task started",
-            "job_id": job_id,
-            "success": True,
-        }
+            return {
+                "message": "Border replacer task started",
+                "job_id": job_id,
+                "success": True,
+            }
 
     except Exception as e:
         daps_logger.error(f"Error in Border Replacer Task: {str(e)}")
         return {"success": False, "message": str(e)}
 
 
-def handle_unmatched_assets_task(radarr, sonarr, plex, chained: bool = False) -> dict:
+def handle_unmatched_assets_task(
+    app, radarr, sonarr, plex, overrides: dict | None = None, chained: bool = False
+) -> dict:
     try:
         with app.app_context():
             unmatched_assets_payload = webui_utils.create_unmatched_assets_payload(
                 radarr, sonarr, plex
             )
+            if overrides:
+                if "logLevel" in overrides:
+                    log_level_str = overrides["logLevel"].upper()
+                    log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                    unmatched_assets_payload.log_level = log_level
+
             daps_logger.debug("Unmatched Assets Payload:")
             daps_logger.debug(pformat(unmatched_assets_payload))
             job_id = progress_instance.add_job(Settings.UNMATCHED_ASSETS.value)
@@ -490,21 +540,32 @@ def handle_unmatched_assets_task(radarr, sonarr, plex, chained: bool = False) ->
 
     except Exception as e:
         daps_logger.error(f"Error in Unmatched Assets Task: {str(e)}")
+        daps_logger.error(traceback.format_exc())
         return {"success": False, "message": str(e)}
 
 
 def handle_plex_uploaderr_task(
+    app,
     plex,
     radarr,
     sonarr,
     webhook_item: dict | None = None,
     media_dict: dict | None = None,
+    overrides: dict | None = None,
     chained: bool = False,
 ) -> dict:
     with app.app_context():
         plex_uploader_payload = webui_utils.create_plex_uploader_payload(
             radarr, sonarr, plex
         )
+        if overrides:
+            if "logLevel" in overrides:
+                log_level_str = overrides["logLevel"].upper()
+                log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                plex_uploader_payload.log_level = log_level
+            if "reapplyPosters" in overrides:
+                plex_uploader_payload.reapply_posters = overrides["reapplyPosters"]
+
         daps_logger.debug("Plex Uploaderr Payload:")
         daps_logger.debug(pformat(plex_uploader_payload))
 
@@ -553,38 +614,49 @@ def handle_plex_uploaderr_task(
         }
 
 
-def run_unmatched_assets_task(app):
-    with app.app_context():
-        from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
+def run_unmatched_assets_task(app, overrides: dict | None = None):
+    from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
 
-        try:
+    try:
+        with app.app_context():
             radarr = get_instances(RadarrInstance)
             sonarr = get_instances(SonarrInstance)
             plex = get_instances(PlexInstance)
 
-            return handle_unmatched_assets_task(radarr, sonarr, plex)
-        except Exception as e:
-            return {"success": False, "message": str(e)}
+        return handle_unmatched_assets_task(
+            app, radarr, sonarr, plex, overrides=overrides
+        )
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
-def run_plex_uploaderr_task(app):
-    with app.app_context():
-        from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
+def run_plex_uploaderr_task(app, overrides: dict | None = None):
+    from daps_webui.models import PlexInstance, RadarrInstance, SonarrInstance
 
-        try:
+    try:
+        with app.app_context():
             radarr = get_instances(RadarrInstance)
             sonarr = get_instances(SonarrInstance)
             plex = get_instances(PlexInstance)
 
-            return handle_plex_uploaderr_task(plex, radarr, sonarr)
-        except Exception as e:
-            return {"success": False, "message": str(e)}
+        return handle_plex_uploaderr_task(
+            app, plex, radarr, sonarr, overrides=overrides
+        )
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
-def run_drive_sync_task(app, chained: bool = False) -> dict:
+def run_drive_sync_task(
+    app, overrides: dict | None = None, chained: bool = False
+) -> dict:
     with app.app_context():
         daps_logger.info(f"run_drive_sync_task called with chained={chained}")
         payload = webui_utils.create_drive_sync_payload()
+        if overrides:
+            if "logLevel" in overrides:
+                log_level_str = overrides["logLevel"].upper()
+                log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                payload.log_level = log_level
         daps_logger.debug("Drive Sync Payload:")
         daps_logger.debug(pformat(payload))
         job_id = progress_instance.add_job(Settings.DRIVE_SYNC.value)

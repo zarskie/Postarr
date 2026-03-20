@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  ChevronUp,
   Bell,
   Settings2,
   Info,
@@ -73,6 +74,7 @@ function Settings() {
   const [driveSyncResetKey, setDriveSyncResetKey] = useState(0);
   const [pendingAction, setPendingAction] = useState(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
+  const [expandedInstances, setExpandedInstances] = useState(new Set());
 
   const sections = [
     { id: "instances", label: "Instances", icon: KeyRound },
@@ -582,7 +584,7 @@ function Settings() {
 
   return (
     <div>
-      <div className="pointer-events-none fixed right-4 top-4 z-[60] flex flex-col gap-2">
+      <div className="pointer-events-none fixed right-4 top-4 z-[65] flex flex-col gap-2">
         {connectionStatus && (
           <div
             className={`animate-in fade-in slide-in-from-right-10 flex transform items-center gap-3 rounded-lg border px-4 py-3 shadow-2xl transition-all duration-500 ease-in-out ${connectionStatus.success ? "border-green-500 bg-gray-800 text-green-400" : "border-red-500 bg-gray-800 text-red-400"}`}
@@ -659,7 +661,7 @@ function Settings() {
         <div className="flex-1 p-4 md:p-6">
           {activeSection === "instances" && (
             <div>
-              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="mb-2 text-xl font-semibold text-white">
                     Instances
@@ -674,45 +676,82 @@ function Settings() {
                     setErrors({});
                     setIsSidebarOpen(true);
                   }}
-                  className="flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 sm:justify-start"
+                  className="mb-2 flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 sm:justify-start"
                 >
                   <Plus size={18} />
                   Add New
                 </button>
               </div>
               {/* Instance List */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-6">
                 {instances.length === 0 ? (
-                  <p className="text-sm text-gray-400">
+                  <p className="border-t border-gray-700 bg-gray-800 text-sm text-gray-400 pt-6">
                     No instances configured yet.
                   </p>
                 ) : (
-                  instances.map((instance) => (
-                    <div
-                      key={`${instance.type}-${instance.id}`}
-                      className="flex flex-col gap-3 rounded-lg bg-gray-700 p-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex-1">
-                        <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-white">
-                            {instance.name}
-                          </span>
-                          <span className="rounded bg-gray-600 px-2 py-1 text-xs uppercase text-gray-300">
+                  <>
+                    <div className="flex flex-row items-center justify-between gap-3 border-b border-gray-700 pb-2">
+                      <span className="text-xs font-medium uppercase text-gray-400">
+                        Name
+                      </span>
+                      <div className="flex shrink-0 items-center gap-20">
+                        <span className="flex w-16 items-center justify-center text-xs font-medium uppercase text-gray-400">
+                          Type
+                        </span>
+                        <span className="w-[66px]"></span>
+                      </div>
+                    </div>
+                    {instances.map((instance) => (
+                      <div
+                        key={`${instance.type}-${instance.id}`}
+                        className="flex flex-row items-start justify-between gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <button
+                            onClick={() =>
+                              setExpandedInstances((prev) => {
+                                const next = new Set(prev);
+                                next.has(instance.url)
+                                  ? next.delete(instance.url)
+                                  : next.add(instance.url);
+                                return next;
+                              })
+                            }
+                            className="flex items-center gap-2 text-left"
+                          >
+                            <span className="text-white">{instance.name}</span>
+                            {expandedInstances.has(instance.url) ? (
+                              <ChevronUp
+                                size={16}
+                                className="shrink-0 text-gray-400"
+                              />
+                            ) : (
+                              <ChevronDown
+                                size={16}
+                                className="shrink-0 text-gray-400"
+                              />
+                            )}
+                          </button>
+                          {expandedInstances.has(instance.url) && (
+                            <span className="break-all text-sm text-gray-400">
+                              {instance.url}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-20">
+                          <span className="flex w-16 shrink-0 items-center justify-center rounded-md bg-gray-600 px-2 py-1 text-xs uppercase text-gray-300">
                             {instance.type}
                           </span>
+                          <button
+                            onClick={() => handleEditInstance(instance)}
+                            className="w-auto shrink-0 items-start rounded-md px-3 py-1.5 text-sm text-white transition-colors hover:text-blue-500"
+                          >
+                            Edit
+                          </button>
                         </div>
-                        <p className="break-all text-sm text-gray-400">
-                          {instance.url}
-                        </p>
                       </div>
-                      <button
-                        onClick={() => handleEditInstance(instance)}
-                        className="w-full rounded-md bg-gray-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-gray-500 sm:w-auto"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  ))
+                    ))}
+                  </>
                 )}
               </div>
             </div>
@@ -916,7 +955,7 @@ function Settings() {
                         </p>
                       </div>
                     )}
-                    <div className="border-t border-gray-500 pt-4">
+                    <div className="border-t border-gray-600 pt-4">
                       <div className="flex flex-col gap-2 sm:flex-row">
                         <button
                           onClick={handleSaveSchedule}
@@ -1068,7 +1107,7 @@ function Settings() {
         </div>
         {/* Sliding Sidebar */}
         <div
-          className={`fixed right-0 top-0 z-50 h-full w-full transform bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-xl ${
+          className={`fixed right-0 top-0 z-[60] h-full w-full transform bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-xl ${
             isSidebarOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -1454,7 +1493,7 @@ function Settings() {
                 setConfirmDelete(false);
               }
             }}
-            className="fixed inset-0 z-40 bg-black bg-opacity-50"
+            className="fixed inset-0 z-[55] bg-black bg-opacity-50"
           ></div>
         )}
       </div>

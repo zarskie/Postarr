@@ -471,7 +471,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
     <div>
       <h2 className="mb-4 text-xl font-semibold text-white">Drive Sync</h2>
       <div className="mb-4 rounded-lg bg-gray-700 p-4">
-        <div className="mb-2 flex flex-col border-b border-gray-500 pb-4">
+        <div className="mb-2 flex flex-col border-b border-gray-600 pb-4">
           <h2 className="mb-2 text-sm font-medium text-white">Log Level</h2>
           <div className="relative">
             <select
@@ -490,7 +490,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
             />
           </div>
         </div>
-        <div className="mb-2 flex flex-1 flex-col border-b border-gray-500 pb-4">
+        <div className="mb-2 flex flex-1 flex-col border-b border-gray-600 pb-4">
           <h2 className="mb-2 mt-1 text-sm font-medium text-white">
             Root Directory
             <span className="text-xs font-medium text-red-500"> *</span>
@@ -537,14 +537,25 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
             )}
           </div>
         </div>
-        <div className="mb-2 flex flex-col border-b border-gray-500 pb-4">
+        <div className="mb-2 flex flex-col border-b border-gray-600 pb-4">
           <h2 className="mb-2 mt-1 text-sm font-medium text-white">G-Drives</h2>
           {gdrives.length === 0 ? (
             <span className="mb-4 text-sm text-gray-400">
               No G-Drives configured yet.
             </span>
           ) : (
-            <div className="mb-4 flex flex-col gap-4 rounded-md border border-gray-600 bg-gray-800 p-2">
+            <div className="mb-4 flex flex-col gap-4 rounded-md border border-gray-600 bg-gray-800 p-4">
+              <div className="flex flex-row items-center justify-between gap-3 border-b border-gray-700 pb-2">
+                <span className="text-xs font-medium uppercase text-gray-400">
+                  Name
+                </span>
+                <div className="flex shrink-0 items-center gap-10 sm:gap-20">
+                  <span className="flex w-16 items-center justify-center text-xs font-medium uppercase text-gray-400">
+                    Type
+                  </span>
+                  <span className="w-[60px]"></span>
+                </div>
+              </div>
               {(showAllDrives ? gdrives : gdrives.slice(0, DRIVES_PREVIEW)).map(
                 (gdrive) => (
                   <div
@@ -564,9 +575,6 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                         }
                         className="flex items-center gap-2 text-left"
                       >
-                        <span className="flex w-14 shrink-0 items-center justify-center rounded bg-gray-600 px-2 py-1 text-xs uppercase text-gray-300">
-                          {gdrive.drive_type}
-                        </span>
                         <span className="text-sm font-medium text-white">
                           {gdrive.friendly_name}
                         </span>
@@ -588,12 +596,17 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleEditDrive(gdrive)}
-                      className="shrink-0 rounded-md px-3 py-1.5 text-sm text-gray-300 transition-colors hover:text-blue-500 sm:w-auto"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex shrink-0 items-center gap-10 sm:gap-20">
+                      <span className="flex w-14 shrink-0 items-center justify-center rounded-md bg-gray-600 px-2 py-1 text-xs uppercase text-gray-300">
+                        {gdrive.drive_type}
+                      </span>
+                      <button
+                        onClick={() => handleEditDrive(gdrive)}
+                        className="w-auto shrink-0 items-start rounded-md px-3 py-1.5 text-sm text-white transition-colors hover:text-blue-500"
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </div>
                 ),
               )}
@@ -634,7 +647,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
         </div>
         {/* Sliding Sidebar */}
         <div
-          className={`fixed right-0 top-0 z-50 h-full w-full transform bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-xl ${
+          className={`fixed right-0 top-0 z-[60] h-full w-full transform bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-xl ${
             isSidebarOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -829,7 +842,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                         <span className="mt-1 text-xs text-gray-400">
                           The name of the folder in the root directory
                           <br />
-                          (e.g. cl2k-dweagle79, cl2k/dweagle79)
+                          (eg., cl2k-dweagle79, cl2k/dweagle79)
                         </span>
                       </div>
                     </div>
@@ -1368,7 +1381,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
       {isSidebarOpen && (
         <div
           onClick={handleCancel}
-          className="fixed inset-0 z-40 bg-black bg-opacity-50"
+          className="fixed inset-0 z-[55] bg-black bg-opacity-50"
         ></div>
       )}
     </div>

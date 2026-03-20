@@ -83,7 +83,7 @@ const PlexUploaderrSettings = ({ onDirtyChange }) => {
     <div>
       <h2 className="mb-4 text-xl font-semibold text-white">Plex Uploaderr</h2>
       <div className="mb-4 rounded-lg bg-gray-700 p-4">
-        <div className="mb-2 flex flex-col border-b border-gray-500 pb-4">
+        <div className="mb-2 flex flex-col border-b border-gray-600 pb-4">
           <h2 className="mb-2 text-sm font-medium text-white">Log Level</h2>
           <div className="relative">
             <select
@@ -102,7 +102,7 @@ const PlexUploaderrSettings = ({ onDirtyChange }) => {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 border-b border-gray-500 py-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 border-b border-gray-600 py-5 lg:grid-cols-2">
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"

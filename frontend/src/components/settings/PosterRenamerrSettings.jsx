@@ -430,7 +430,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
     <div>
       <h2 className="mb-4 text-xl font-semibold text-white">Poster Renamerr</h2>
       <div className="mb-4 rounded-lg bg-gray-700 p-4">
-        <div className="mb-2 flex flex-col border-b border-gray-500 pb-4">
+        <div className="mb-2 flex flex-col border-b border-gray-600 pb-4">
           <h2 className="mb-2 text-sm font-medium text-white">Log Level</h2>
           <div className="relative">
             <select
@@ -449,7 +449,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             />
           </div>
         </div>
-        <div className="mt-4 flex flex-col gap-2 border-b border-gray-500 pb-2 md:flex-row">
+        <div className="mt-4 flex flex-col gap-2 border-b border-gray-600 pb-2 md:flex-row">
           <div className="mb-2 flex flex-1 flex-col">
             <h2 className="mb-2 text-sm font-medium text-white">
               Root Directory
@@ -540,7 +540,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             </div>
           </div>
         </div>
-        <div className="gap-2 border-b border-gray-500 py-2">
+        <div className="gap-2 border-b border-gray-600 py-2">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-sm font-medium text-white">
               Source Folders
@@ -604,7 +604,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                       newFolders.splice(newPos, 0, moved);
                       setSourceFolders(newFolders);
                     }}
-                    className="h-10 w-10 flex-shrink-0 rounded-md border-gray-500 bg-gray-600 px-1 text-center text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-10 w-10 flex-shrink-0 rounded-md border-gray-600 bg-gray-600 px-1 text-center text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 )}
                 <div className="relative w-full">
@@ -648,7 +648,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                     }}
                     className={`w-full rounded-md border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 ${!isReorderMode && blurredFields.has("sourceFolders") && errors.sourceFolders ? "border-red-500 focus:ring-red-500" : "border-gray-600 focus:ring-blue-500"}`}
                     disabled={isReorderMode}
-                    placeholder="iamspartacus"
+                    placeholder="cl2k-dweagle79"
                   />
                   {index === 0 &&
                     popupField === "sourceFolders" &&
@@ -707,9 +707,9 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             {!isReorderMode && (
               <div className="flex flex-col gap-2 pb-1">
                 <span className="mt-1 text-xs text-gray-400">
-                  Enter source folder name (eg., iamspartacus, dweagle_cl2k) --
-                  Source folder names must include "mm2k" or "cl2k" for folder
-                  filters when fetching folders
+                  Enter a source folder name (eg., cl2k-dweagle79,
+                  cl2k/dweagle79) -- Source folder names must include "mm2k" or
+                  "cl2k" for folder filters to work when loading folders
                 </span>
                 <div className="mb-1 flex flex-col gap-2 sm:flex-row">
                   <button
@@ -786,7 +786,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-b border-gray-500 py-4">
+        <div className="flex flex-col gap-2 border-b border-gray-600 py-4">
           <h2 className="text-sm font-medium text-white">
             Library Names
             <span className="text-xs font-medium text-red-500"> *</span>
@@ -881,7 +881,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
             </div>
           </div>
         </div>
-        <div className="mb-2 grid grid-cols-1 gap-4 border-b border-gray-500 py-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-2 grid grid-cols-1 gap-4 border-b border-gray-600 py-5 md:grid-cols-2 lg:grid-cols-3">
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -1067,7 +1067,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
           </label>
         </div>
         {settings.replaceBorder && (
-          <div className="flex w-full flex-col items-start justify-between gap-2 border-b border-gray-500 py-2 md:flex-row md:items-start">
+          <div className="flex w-full flex-col items-start justify-between gap-2 border-b border-gray-600 py-2 md:flex-row md:items-start">
             <div className="flex w-full flex-col">
               <h2 className="mb-2 text-sm font-medium text-white">
                 Border Type

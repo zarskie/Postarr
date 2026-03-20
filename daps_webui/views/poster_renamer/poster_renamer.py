@@ -4,7 +4,13 @@ from collections import defaultdict
 from pathlib import Path
 from pprint import pformat
 
-from flask import Blueprint, jsonify, render_template, request, send_from_directory
+from flask import (
+    Blueprint,
+    jsonify,
+    render_template,
+    request,
+    send_from_directory,
+)
 
 import DapsEX.settings
 from daps_webui import (
@@ -414,6 +420,7 @@ def fetch_unmatched_assets():
 
 @poster_renamer.route("/arr-webhook", methods=["POST"])
 def recieve_webhook():
+    from daps_webui import app as flask_app
     from daps_webui import db
     from daps_webui.models import Settings
 
@@ -529,7 +536,7 @@ def recieve_webhook():
             return jsonify({"message": "Skipped task (duplicate)"}), 200
         else:
             daps_logger.debug(f"Extracted item: {new_item}")
-            result = run_renamer_task(webhook_item=new_item)
+            result = run_renamer_task(flask_app, webhook_item=new_item)
 
     except Exception as e:
         daps_logger.error(
@@ -546,7 +553,11 @@ def recieve_webhook():
 
 @poster_renamer.route("/run-unmatched-job", methods=["POST"])
 def run_unmatched():
-    result = run_unmatched_assets_task()
+    from daps_webui import app as flask_app
+
+    data = request.get_json() or {}
+    overrides = data.get("settings", {})
+    result = run_unmatched_assets_task(flask_app, overrides=overrides)
     job_name = DapsEX.Settings.UNMATCHED_ASSETS.value
 
     if result["success"] is False:
@@ -560,21 +571,27 @@ def run_unmatched():
 
 @poster_renamer.route("/run-renamer-job", methods=["POST"])
 def run_renamer():
-    result = run_renamer_task()
+    from daps_webui import app as flask_app
+
+    data = request.get_json() or {}
+    overrides = data.get("settings", {})
+    result = run_renamer_task(flask_app, overrides=overrides)
     job_name = DapsEX.Settings.POSTER_RENAMERR.value
 
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
     else:
         database.add_job_to_history(job_name, "success", "manual")
-
-    database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
 
 
 @poster_renamer.route("/run-border-replace-job", methods=["POST"])
 def run_border_replacer():
-    result = run_border_replacer_task()
+    from daps_webui import app as flask_app
+
+    data = request.get_json() or {}
+    overrides = data.get("settings", {})
+    result = run_border_replacer_task(flask_app, overrides=overrides)
     job_name = DapsEX.Settings.BORDER_REPLACERR.value
 
     if result["success"] is False:
@@ -594,7 +611,12 @@ def run_border_replacer():
 
 @poster_renamer.route("/run-plex-upload-job", methods=["POST"])
 def run_plex_upload():
-    result = run_plex_uploaderr_task()
+    from daps_webui import app as flask_app
+
+    data = request.get_json() or {}
+    overrides = data.get("settings", {})
+
+    result = run_plex_uploaderr_task(flask_app, overrides=overrides)
     job_name = DapsEX.Settings.PLEX_UPLOADERR.value
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
@@ -607,7 +629,12 @@ def run_plex_upload():
 
 @poster_renamer.route("/run-drive-sync-job", methods=["POST"])
 def run_drive_sync():
-    result = run_drive_sync_task()
+    from daps_webui import app as flask_app
+
+    data = request.get_json() or {}
+    overrides = data.get("settings", {})
+
+    result = run_drive_sync_task(flask_app, overrides=overrides)
     job_name = DapsEX.Settings.DRIVE_SYNC.value
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
