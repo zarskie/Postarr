@@ -20,13 +20,18 @@ function ListRow({
         className={`relative z-10 w-full px-4 py-2 text-left text-sm transition-colors ${isSelected ? "text-white" : "text-gray-300 hover:text-white"}`}
       >
         <span
-          className={`absolute left-0 top-0 h-full w-1 ${selectedItem?.file_hash === item.file_hash ? "bg-blue-500" : "bg-transparent"}`}
+          className={`absolute left-0 top-0 h-full w-1 rounded-r ${selectedItem?.file_hash === item.file_hash ? "bg-blue-500" : "bg-transparent"}`}
         ></span>
         {item.file_name}
+        {isSelected && (
+          <span className="mt-0.5 block truncate text-xs text-gray-500">
+            {item.source_path.split("/").slice(1, -1).join("/")}
+          </span>
+        )}
       </button>
       <div className="flex flex-shrink-0 items-center">
         <button
-          className="relative z-10 p-2 text-sm text-gray-500 hover:text-blue-500"
+          className="relative z-10 p-2 text-sm text-gray-500 hover:text-white"
           onClick={(e) => {
             e.stopPropagation();
             const rect = e.currentTarget.getBoundingClientRect();
@@ -39,7 +44,7 @@ function ListRow({
             );
           }}
         >
-          <Ellipsis size={14} className="h-4 w-4" />
+          <Ellipsis size={18} className="cursor-default" />
         </button>
         {hasChevron && <div className="w-8" />}
         {openPopover === item.file_hash &&
@@ -49,10 +54,10 @@ function ListRow({
                 top: popoverPos.top,
                 left: popoverPos.left,
               }}
-              className="animate-in fade-in zoom-in-95 fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg duration-100"
+              className="fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg duration-100"
             >
               <button
-                className="w-full rounded px-4 py-2 text-left text-sm hover:bg-gray-800"
+                className="w-full rounded px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
                 onClick={(e) => {
                   e.stopPropagation();
                   fetch("/api/poster-renamer/delete-poster", {
@@ -72,7 +77,7 @@ function ListRow({
                     });
                 }}
               >
-                <span className="flex items-center  gap-2 text-sm text-white">
+                <span className="flex items-center  gap-2 text-sm">
                   <Trash2 size={16} className="text-red-500" />
                   Delete Poster
                 </span>

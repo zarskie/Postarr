@@ -34,28 +34,35 @@ function ShowRow({
           }}
           className={`relative z-10 flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors ${isSelected ? "text-white" : "text-gray-300 hover:text-white"}`}
         >
-          <span
-            className={`absolute left-0 top-0 h-full w-1 ${isSelected ? "bg-blue-500" : "bg-transparent"}`}
-          />
-          <span>{show.file_name}</span>
+          <div className="flex flex-col">
+            <span
+              className={`absolute left-0 top-0 h-full w-1 rounded-r ${isSelected ? "bg-blue-500" : "bg-transparent"}`}
+            />
+            <span>{show.file_name}</span>
+            {isSelected && (
+              <span className="mt-0.5 block truncate text-xs text-gray-500">
+                {show.source_path.split("/").slice(1, -1).join("/")}
+              </span>
+            )}
+          </div>
         </button>
 
         <div className="flex flex-shrink-0 items-center">
           <button
-            className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-blue-500"
+            className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-white"
             onClick={(e) => handleEllipsis(e, show.file_hash)}
           >
-            <Ellipsis size={14} className="h-4 w-4" />
+            <Ellipsis size={18} className="cursor-default" />
           </button>
           <button
             onClick={() => {
               setManualOpen(!open);
             }}
-            className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-300 hover:text-blue-500"
+            className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-white"
           >
             <ChevronDown
-              size={16}
-              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : "rotate-0"}`}
+              size={18}
+              className={`cursor-default transition-transform ${open ? "rotate-180" : "rotate-0"}`}
             />
           </button>
         </div>
@@ -71,7 +78,7 @@ function ShowRow({
               top: popoverPos.top,
               left: popoverPos.left,
             }}
-            className="animate-in fade-in zoom-in-95 fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg duration-100"
+            className="fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg"
           >
             <button
               className="w-full rounded px-4 py-2 text-left text-sm hover:bg-gray-800"
@@ -115,17 +122,26 @@ function ShowRow({
                   onClick={() => onSelect(season)}
                   className={`relative z-10 flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors ${seasonSelected ? "text-white" : "text-gray-400 hover:text-white"}`}
                 >
-                  <span
-                    className={`absolute left-0 top-0 h-full w-1 ${seasonSelected ? "bg-blue-500" : "bg-transparent"}`}
-                  ></span>
-                  {season.season === 0 ? "Specials" : `Season ${season.season}`}
+                  <div className="flex flex-col">
+                    <span
+                      className={`absolute left-0 top-0 h-full w-1 rounded-r ${seasonSelected ? "bg-blue-500" : "bg-transparent"}`}
+                    ></span>
+                    {season.season === 0
+                      ? "Specials"
+                      : `Season ${season.season}`}
+                    {seasonSelected && (
+                      <span className="block truncate text-xs text-gray-500">
+                        {season.source_path.split("/").slice(1, -1).join("/")}
+                      </span>
+                    )}
+                  </div>
                 </button>
                 <div className="flex flex-shrink-0 items-center">
                   <button
-                    className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-blue-500"
+                    className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-white"
                     onClick={(e) => handleEllipsis(e, season.file_hash)}
                   >
-                    <Ellipsis size={14} className="h-4 w-4" />
+                    <Ellipsis size={18} className="cursor-default" />
                   </button>
                   <div className="w-8" />
                 </div>
@@ -136,7 +152,7 @@ function ShowRow({
                         top: popoverPos.top,
                         left: popoverPos.left,
                       }}
-                      className="animate-in fade-in zoom-in-95 fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg duration-100"
+                      className="fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg"
                     >
                       <button
                         className="w-full rounded px-4 py-2 text-left text-sm hover:bg-gray-800"

@@ -882,59 +882,63 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-x-2 gap-y-6 border-b border-gray-600 py-5 md:grid-cols-2 lg:grid-cols-3">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={settings.webhookRun}
-              onChange={(e) =>
-                setSettings({ ...settings, webhookRun: e.target.checked })
-              }
-              className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-            />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-white">Webhook Run</span>
-                <div className="relative flex items-center">
-                  <Info
-                    size={14}
-                    className="text-gray-400 hover:text-white"
-                    onMouseEnter={() => showToolTip("webhookRun")}
-                    onMouseLeave={hideTooltip}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveTooltip(
-                        activeTooltip === "webhookRun" ? null : "webhookRun",
-                      );
-                    }}
-                  />
-                  {activeTooltip === "webhookRun" && (
-                    <div
-                      className="absolute left-full top-1/2 z-10 ml-2 mt-1 w-60 -translate-y-1/2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs text-gray-300 shadow-lg sm:w-96"
-                      onMouseEnter={cancelHide}
+          <div className="flex items-center gap-2">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={settings.webhookRun}
+                onChange={(e) =>
+                  setSettings({ ...settings, webhookRun: e.target.checked })
+                }
+                className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+              />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white">Webhook Run</span>
+                  <div className="relative flex items-center">
+                    <Info
+                      size={14}
+                      className="cursor-default text-gray-400 hover:text-white"
+                      onMouseEnter={() => showToolTip("webhookRun")}
                       onMouseLeave={hideTooltip}
-                    >
-                      <span className="text-xs text-gray-300">
-                        Please read the webhook configuration guide here.
-                        <br />
-                        <br />
-                      </span>
-                      <a
-                        className="break-all text-blue-400"
-                        href="https://github.com/zarskie/daps-ui/wiki/Webhook-Run"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setActiveTooltip(
+                          activeTooltip === "webhookRun" ? null : "webhookRun",
+                        );
+                      }}
+                    />
+                    {activeTooltip === "webhookRun" && (
+                      <div
+                        className="absolute left-full top-1/2 z-10 ml-2 mt-1 w-60 -translate-y-1/2 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs text-gray-300 shadow-lg sm:w-96"
+                        onMouseEnter={cancelHide}
+                        onMouseLeave={hideTooltip}
                       >
-                        https://github.com/zarskie/daps-ui/wiki/Webhook-Run
-                      </a>
-                    </div>
-                  )}
+                        <span className="text-xs text-gray-300">
+                          Please read the webhook configuration guide here.
+                          <br />
+                          <br />
+                        </span>
+                        <a
+                          className="break-all text-blue-400"
+                          href="https://github.com/zarskie/Postarr/wiki/Webhook-Run"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          https://github.com/zarskie/Postarr/wiki/Webhook-Run
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                <span className="text-xs text-gray-400">
+                  Enable webhook-triggered poster processing
+                </span>
               </div>
-              <span className="text-xs text-gray-400">
-                Enable webhook-triggered poster processing
-              </span>
-            </div>
-          </label>
+            </label>
+          </div>
+
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"

@@ -11,7 +11,10 @@ export function PosterProvider({ children }) {
     try {
       const response = await fetch("/api/poster-renamer/get-file-paths");
       const result = await response.json();
-      if (result.success && result.data) setFilePaths(result.data);
+      if (result.success && result.data) {
+        console.log(result.data);
+        setFilePaths(result.data);
+      }
     } catch (error) {
       console.error("Error fetching file paths:", error);
     }

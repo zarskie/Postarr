@@ -17,6 +17,7 @@ const RunCommands = () => {
     hideCollections: false,
   });
   const [logLevel, setLogLevel] = useState("info");
+  const [version, setVersion] = useState("");
   const [jobId, setJobId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [jobRunning, setJobRunning] = useState(null);
@@ -160,6 +161,12 @@ const RunCommands = () => {
     };
     fetchSettings();
   }, [selectedModule]);
+
+  useEffect(() => {
+    fetch("/api/settings/version")
+      .then((res) => res.json())
+      .then((data) => setVersion(data.version));
+  }, []);
 
   return (
     <>
@@ -449,7 +456,7 @@ const RunCommands = () => {
             </div>
           </>
         )}
-        <div className="flex shrink-0 items-center border-t border-gray-800 py-2">
+        <div className="flex shrink-0 items-center justify-between border-t border-gray-800 py-2">
           <button
             onClick={handleToggle}
             className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white"
@@ -459,6 +466,9 @@ const RunCommands = () => {
               Run Commands
             </span>
           </button>
+          <span className="px-2 text-xs font-medium text-gray-400">
+            Postarr v{version}
+          </span>
         </div>
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${jobId && progress !== null ? "max-h-12" : "max-h-0"}`}

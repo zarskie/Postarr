@@ -50,9 +50,9 @@ function PosterViewer() {
 
   return (
     <>
-      <div className="flex flex-col p-2 lg:p-0">
+      <div className="flex flex-col">
         <div className="flex flex-col overflow-hidden rounded-md border border-gray-700 bg-gray-900 lg:flex-row">
-          <div className="flex max-h-[550px] w-full flex-col border-b border-gray-700  bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
+          <div className="flex max-h-[600px] w-full flex-col border-b border-gray-700  bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
             <nav className="mb-2 flex-shrink-0 border-b border-gray-700 bg-gray-900">
               <ul className="flex text-sm font-medium">
                 {filters.map((filter) => {
@@ -66,7 +66,7 @@ function PosterViewer() {
                         className={`relative flex w-full items-center justify-center gap-3 px-4 py-3 transition-colors ${activeFilter === filter.id ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"}`}
                       >
                         <span
-                          className={`absolute bottom-0 left-0 h-0.5 w-full rounded-t ${isActive ? "bg-blue-500" : "bg-transparent"}`}
+                          className={`absolute bottom-0 left-0 h-1 w-full rounded-t ${isActive ? "bg-blue-500" : "bg-transparent"}`}
                         />
                         <span className="flex-1">{filter.label}</span>
                       </button>
@@ -82,7 +82,7 @@ function PosterViewer() {
                 onChange={(e) => {
                   setSearchValue(e.target.value);
                 }}
-                className="w-full rounded border border-gray-700 bg-gray-900 px-4 py-2 text-sm  text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded border border-gray-700 bg-gray-800 px-4 py-2 text-sm  text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Search assets..."
               />
             </div>
@@ -165,7 +165,7 @@ function PosterViewer() {
               </div>
             </div>
           </div>
-          <div className="flex w-full items-center justify-center overflow-hidden border-gray-700 bg-gray-950 p-6 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
+          <div className="flex min-h-[600px] w-full items-center justify-center overflow-hidden border-gray-700 bg-gray-950 p-6 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
             {selectedItem ? (
               selectedItem.file_path ? (
                 <img

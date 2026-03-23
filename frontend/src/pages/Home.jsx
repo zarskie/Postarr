@@ -10,7 +10,7 @@ function Home() {
   ];
   return (
     <div>
-      <h1 className="mb-6 px-4 text-2xl font-bold text-white xl:px-0">
+      <h1 className="mb-6 px-2 text-2xl font-bold text-white xl:px-0">
         Dashboard
       </h1>
       <div className="mx-2 flex flex-col rounded-lg bg-gray-800 py-2 md:flex-row xl:mx-0">
@@ -26,7 +26,7 @@ function Home() {
                     onClick={() => {
                       setActiveSection(section.id);
                     }}
-                    className={`relative flex w-full items-center gap-3 whitespace-nowrap px-4 py-2 text-left transition-colors ${
+                    className={`relative flex w-full items-center gap-3 whitespace-nowrap p-2 text-left transition-colors ${
                       activeSection === section.id
                         ? "bg-gray-700 text-white"
                         : "text-gray-400 hover:bg-gray-700 hover:text-white"
@@ -35,7 +35,7 @@ function Home() {
                     <span
                       className={`absolute left-0 top-0 h-full w-1 rounded-r ${isActive ? "bg-blue-500" : "bg-transparent"}`}
                     />
-                    <Icon size={22} />
+                    <Icon size={20} />
                     <span className="flex-1">{section.label}</span>
                   </button>
                 </li>
@@ -47,7 +47,7 @@ function Home() {
           {/* Poster Viewer Sections */}
           {activeSection === "poster-viewer" && (
             <>
-              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
                 <div>
                   <h2 className="mb-2 text-xl font-semibold text-white">
                     Poster Viewer
@@ -64,7 +64,7 @@ function Home() {
           )}
           {/* Unmatched Assets Section */}
           {activeSection === "unmatched-assets" && (
-            <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
               <div>
                 <h2 className="mb-2 text-xl font-semibold text-white">
                   Unmatched Assets
