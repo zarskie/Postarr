@@ -1,16 +1,8 @@
-# from flask_migrate import upgrade
-#
-# from daps_webui import app
-#
-# with app.app_context():
-#     print("Applying database migrations...")
-#     upgrade()
-#     print("Database migrations applied")
 import os
 
 from flask_migrate import upgrade
 
-from daps_webui import app
+from postarr import app
 
 with app.app_context():
     print("Applying database migrations...")
@@ -27,4 +19,4 @@ with app.app_context():
         print(f"ERROR: Migrations directory not found at {migrations_dir}")
         print(f"Current working directory: {os.getcwd()}")
         print(f"Directory contents: {os.listdir(project_root)}")
-        raise FileNotFoundError(f"Migrations directory not found")
+        raise FileNotFoundError("Migrations directory not found")

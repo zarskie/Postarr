@@ -43,14 +43,14 @@ cd /code
 if [ "$APP_MODE" = "WEB" ]; then
     if [ "$FLASK_ENV" = "development" ]; then
         echo "Starting Flask in development mode as $PUID:$PGID"
-        exec gosu appuser flask --app daps_webui:app run --host 0.0.0.0 --port=5000 --debug
+        exec gosu appuser flask --app postarr:app run --host 0.0.0.0 --port=5000 --debug
     else
         gosu appuser python /code/migrate_db.py || {
             echo "Failed to migrate database. Exiting."
             exit 1
         }
         echo "Starting Gunicorn in production mode as $PUID:$PGID"
-        exec gosu appuser gunicorn --timeout 1800 -w 1 -c gunicorn.conf.py -b 0.0.0.0:8000 daps_webui:app
+        exec gosu appuser gunicorn --timeout 1800 -w 1 -c gunicorn.conf.py -b 0.0.0.0:8000 postarr:app
 
     fi
 else

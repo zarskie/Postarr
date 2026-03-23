@@ -8,12 +8,12 @@ from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from DapsEX import PosterRenamerr, UnmatchedAssets, YamlConfig
-from DapsEX.database_cache import Database
-from DapsEX.logger import init_logger
-from DapsEX.plex_upload import PlexUploaderr
-from DapsEX.settings import Settings
-from DapsEX.utils import construct_schedule_time, parse_schedule_string
+from modules import PosterRenamerr, UnmatchedAssets, YamlConfig
+from modules.database_cache import Database
+from modules.logger import init_logger
+from modules.plex_upload import PlexUploaderr
+from modules.settings import Settings
+from modules.utils import construct_schedule_time, parse_schedule_string
 
 log_level_env = os.getenv("MAIN_LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_env, logging.INFO)
@@ -25,7 +25,7 @@ db = Database(logger)
 
 
 def start_cli_listener():
-    from DapsEX.webhook_listener import cli_app
+    from modules.webhook_listener import cli_app
 
     cli_app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
 

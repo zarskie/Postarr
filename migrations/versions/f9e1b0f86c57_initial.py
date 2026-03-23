@@ -9,7 +9,7 @@ Create Date: 2026-03-03 22:19:50.134012
 import sqlalchemy as sa
 from alembic import op
 
-from daps_webui.models.file_cache import JSONEncodedText
+from postarr.models.file_cache import JSONEncodedText
 
 # revision identifiers, used by Alembic.
 revision = "f9e1b0f86c57"

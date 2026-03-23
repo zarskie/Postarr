@@ -9,8 +9,8 @@ on:
     branches:
       - develop
     paths:
-      - "daps_webui/**"
-      - "DapsEX/**"
+      - "postarr/**"
+      - "modules/**"
       - "Dockerfile"
       - "**/package*.json"
       - "migrations/**"
@@ -18,7 +18,6 @@ on:
       - "entrypoint.sh"
       - "migrate_db.py"
       - "progress.py"
-      - "scheduler.py"
   workflow_dispatch:
 jobs:
   build-and-push:
@@ -33,7 +32,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/zarskie/daps-ui
+          images: ghcr.io/zarskie/Postarr
           tags: |
             type=raw,value=nightly
             type=sha,prefix=,format=short
@@ -59,8 +58,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/zarskie/daps-ui:nightly
-          cache-to: type=registry,ref=ghcr.io/zarskie/daps-ui:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/zarskie/Postarr:nightly
+          cache-to: type=registry,ref=ghcr.io/zarskie/Postarr:buildcache,mode=max
 
       - name: Show Docker image info
         run: |

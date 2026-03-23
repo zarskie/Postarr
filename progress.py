@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from multiprocessing import Manager
 
-from DapsEX.settings import Settings
+from modules.settings import Settings
 
 
 class ProgressState(Enum):

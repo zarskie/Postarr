@@ -1,27 +1,13 @@
 services:
-  daps_ui:
-    container_name: # daps_ui
-    image: # monster117/daps-ui
+  postarr:
+    container_name: # postarr
+    image: # ghcr.io/zarskie/postarr
     environment:
-      # - APP_MODE=WEB
       # - TZ=America/Vancouver
-      # - PUID=1000
-      # - PGID=1000
+      # - PUID=99
+      # - PGID=100
     ports:
       # - "8000:8000"
-    volumes:
-      # - path to config directory:/config
-      # - path to poster folders:/posters
-      # - path to kometa asset folder:/assets
-  daps_cli:
-    container_name: # daps_cli
-    environment:
-      # - APP_MODE=CLI
-      # - TZ=America/Vancouver
-      # - PUID=1000
-      # - PGID=1000
-    ports:
-      # - "5000:5000" - Needed if want to use run renamer on new item in arrs
     volumes:
       # - path to config directory:/config
       # - path to poster folders:/posters
