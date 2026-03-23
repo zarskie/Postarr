@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronUp, ChevronDown, Play, X } from "lucide-react";
+import { usePoster } from "../../context/PosterContext";
 
 const RunCommands = () => {
+  const { refreshFilePaths } = usePoster();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedModule, setSelectedModule] = useState("");
   const [settings, setSettings] = useState({
@@ -89,10 +91,12 @@ const RunCommands = () => {
           setTimeout(() => {
             setJobId(null);
             setProgress(null);
+            refreshFilePaths();
           }, 2000);
         }
       } catch (error) {
         clearInterval(pollRef.current);
+        console.error("Error polling progress:", error);
       }
     }, 1000);
   };
@@ -160,7 +164,7 @@ const RunCommands = () => {
   return (
     <>
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col justify-between overflow-hidden bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out ${isExpanded ? "translate-y-0" : "translate-y-[calc(100%-3rem)]"}`}
+        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col justify-between overflow-hidden bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out ${isExpanded ? "translate-y-0" : jobId && progress != null ? "translate-y-[calc(100%-6rem)]" : "translate-y-[calc(100%-3rem)]"}`}
       >
         {isExpanded && (
           <>
@@ -456,7 +460,9 @@ const RunCommands = () => {
             </span>
           </button>
         </div>
-        {jobId && progress !== null && (
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${jobId && progress !== null ? "max-h-12" : "max-h-0"}`}
+        >
           <div className="px-4 py-2">
             <div className="h-1.5 w-full rounded-full bg-gray-700">
               <div
@@ -466,7 +472,7 @@ const RunCommands = () => {
             </div>
             <span className="mt-1 text-xs text-gray-400">{progress}%</span>
           </div>
-        )}
+        </div>
       </div>
     </>
   );

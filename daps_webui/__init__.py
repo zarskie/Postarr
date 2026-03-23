@@ -129,6 +129,7 @@ def create_app() -> Flask:
     # init flask app
     app = Flask(__name__, static_folder=None)
     app.config.from_object(global_config)
+    Config.init_directories()
     react_folder = os.path.join(app.root_path, "..", "frontend", "dist")
 
     # initiate database

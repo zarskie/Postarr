@@ -59,7 +59,7 @@ def serve_image(filename):
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-@poster_renamer.route("/poster-renamer/get-file-paths", methods=["GET"])
+@poster_renamer.route("/get-file-paths", methods=["GET"])
 def get_images():
     try:
         settings = models.Settings.query.first()
@@ -206,7 +206,7 @@ def get_images():
 
         # pprint.pprint(sorted_files["shows"], width=120)
 
-        return jsonify({"success": True, "sorted_files": sorted_files})
+        return jsonify({"success": True, "data": sorted_files})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
