@@ -7,4 +7,4 @@ class Payload:
     target_path: str
     asset_folders: bool
     border_setting: str | None
-    custom_color: str
+    custom_color: str | None

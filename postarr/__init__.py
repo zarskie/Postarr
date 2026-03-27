@@ -436,6 +436,8 @@ def run_border_replacer_task(
                         "customColor", border_replacerr_payload.custom_color
                     )
 
+            if not border_replacerr_payload.custom_color:
+                border_replacerr_payload.custom_color = None
             border_setting = border_replacerr_payload.border_setting
             custom_color = border_replacerr_payload.custom_color
 
@@ -472,9 +474,7 @@ def run_border_replacer_task(
             postarr_logger.debug(f"Job Border Replacerr: '{job_id}' added.")
             postarr_logger.debug("Border Replacerr Payload:")
             postarr_logger.debug(pformat(border_replacerr_payload))
-            border_replacerr = BorderReplacerr(
-                custom_color=None, payload=border_replacerr_payload
-            )
+            border_replacerr = BorderReplacerr(payload=border_replacerr_payload)
             if chained:
                 border_replacerr.replace_current_assets(progress_instance, job_id)
                 progress_instance.remove_job(job_id)

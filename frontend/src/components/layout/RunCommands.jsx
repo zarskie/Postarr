@@ -6,7 +6,7 @@ import { useUnmatched } from "../../context/UnmatchedContext";
 import { isValidHex } from "../utils/validators";
 
 const RunCommands = () => {
-  const { refreshFilePaths } = usePoster();
+  const { refreshFilePaths, bustPreview } = usePoster();
   const { refreshUnmatchedData } = useUnmatched();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedModule, setSelectedModule] = useState("");
@@ -144,6 +144,7 @@ const RunCommands = () => {
             setProgress(null);
             refreshFilePaths();
             refreshUnmatchedData();
+            bustPreview();
           }, 2000);
         }
       } catch (error) {

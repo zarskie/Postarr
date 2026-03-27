@@ -74,9 +74,10 @@ class BorderReplacerr:
             original_poster_paths = [
                 poster for poster in self.backup_path.rglob("*") if poster.is_file()
             ]
+            total = len(original_poster_paths)
             if job_id and cb:
                 cb(job_id, 20, ProgressState.IN_PROGRESS)
-            for poster in original_poster_paths:
+            for i, poster in enumerate(original_poster_paths):
                 try:
                     relative_path = poster.relative_to(self.backup_path)
                     target_path = self.target_path / relative_path
@@ -85,10 +86,10 @@ class BorderReplacerr:
 
                     if self.border_setting == "remove":
                         new_image = self.remove_border(poster)
-                        self.logger.info(f"Removed border for: {poster}")
+                        self.logger.debug(f"Removed border for: {poster}")
                     elif self.border_setting in ["custom", "black"]:
                         new_image = self.replace_border(poster)
-                        self.logger.info(f"Replaced border for: {poster}")
+                        self.logger.debug(f"Replaced border for: {poster}")
                     else:
                         self.logger.warning(
                             f"Unsupported border setting '{self.border_setting}' for: {poster}"
@@ -96,7 +97,7 @@ class BorderReplacerr:
                         continue
 
                     new_image.save(target_path)
-                    self.logger.info(f"Updated asset saved: {target_path}")
+                    self.logger.debug(f"Updated asset saved: {target_path}")
 
                     file_hash = hash_file(target_path, self.logger)
                     self.db.update_border_replaced_hash(
@@ -106,6 +107,9 @@ class BorderReplacerr:
                         self.border_setting,
                         self.custom_color,
                     )
+                    if job_id and cb and total > 0:
+                        progress = 20 + int(((i + 1) / total) * 80)
+                        cb(job_id, progress, ProgressState.IN_PROGRESS)
                 except Exception as e:
                     self.logger.error(f"Error processing file '{poster}': {e}")
             self.logger.info("All assets have been updated successfully")

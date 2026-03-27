@@ -7,6 +7,9 @@ export function PosterProvider({ children }) {
     collections: [],
     shows: {},
   });
+  const [previewBust, setPreviewBust] = useState(() => Date.now());
+  const bustPreview = () => setPreviewBust(Date.now());
+
   const refreshFilePaths = async () => {
     try {
       const response = await fetch("/api/poster-renamer/get-file-paths");
@@ -25,7 +28,9 @@ export function PosterProvider({ children }) {
   }, []);
 
   return (
-    <PosterContext.Provider value={{ filePaths, refreshFilePaths }}>
+    <PosterContext.Provider
+      value={{ filePaths, refreshFilePaths, previewBust, bustPreview }}
+    >
       {children}
     </PosterContext.Provider>
   );

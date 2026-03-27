@@ -8,7 +8,7 @@ function PosterViewer() {
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
-  const { filePaths, refreshFilePaths } = usePoster();
+  const { filePaths, refreshFilePaths, previewBust, bustPreview } = usePoster();
   const { refreshUnmatchedData } = useUnmatched();
   const [selectedItem, setSelectedItem] = useState(null);
   const [openPopover, setOpenPopover] = useState(null);
@@ -39,6 +39,12 @@ function PosterViewer() {
   const filteredItems = allItems
     .filter((item) => item.file_name.toLowerCase().includes(search))
     .sort((a, b) => a.file_name.localeCompare(b.file_name));
+
+  const handleDelete = () => {
+    refreshFilePaths();
+    refreshUnmatchedData();
+    bustPreview();
+  };
 
   useEffect(() => {
     const handler = () => setOpenPopover(null);
@@ -105,10 +111,7 @@ function PosterViewer() {
                           popoverPos={popoverPos}
                           setPopoverPos={setPopoverPos}
                           hasChevron={true}
-                          onDelete={() => {
-                            refreshFilePaths();
-                            refreshUnmatchedData();
-                          }}
+                          onDelete={handleDelete}
                         />
                       );
                     return (
@@ -123,10 +126,7 @@ function PosterViewer() {
                         popoverPos={popoverPos}
                         setPopoverPos={setPopoverPos}
                         hasChevron={false}
-                        onDelete={() => {
-                          refreshFilePaths();
-                          refreshUnmatchedData();
-                        }}
+                        onDelete={handleDelete}
                       />
                     );
                   })}
@@ -142,10 +142,7 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={() => {
-                        refreshFilePaths();
-                        refreshUnmatchedData();
-                      }}
+                      onDelete={handleDelete}
                     />
                   ))}
                 {activeFilter === "shows" &&
@@ -160,10 +157,7 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={() => {
-                        refreshFilePaths();
-                        refreshUnmatchedData();
-                      }}
+                      onDelete={handleDelete}
                     />
                   ))}
                 {activeFilter === "collections" &&
@@ -178,10 +172,7 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={() => {
-                        refreshFilePaths();
-                        refreshUnmatchedData();
-                      }}
+                      onDelete={handleDelete}
                     />
                   ))}
               </div>
@@ -192,7 +183,7 @@ function PosterViewer() {
               selectedItem.file_path ? (
                 <img
                   key={selectedItem.file_path}
-                  src={`/api/poster-renamer${selectedItem.file_path}`}
+                  src={`/api/poster-renamer${selectedItem.file_path}?t=${previewBust}`}
                   alt={selectedItem.file_name}
                   className="h-full max-h-[600px] w-full rounded object-contain text-gray-300 duration-300 animate-in fade-in lg:max-h-full"
                 />
