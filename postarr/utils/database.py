@@ -6,6 +6,7 @@ import pytz
 from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
 
+from postarr import models
 from postarr.models.file_cache import FileCache
 from postarr.models.jobs import CurrentJobs, JobHistory
 
@@ -28,6 +29,113 @@ class Database:
             return False
         except SQLAlchemyError as e:
             self.logger.error(f"Error deleting file cache entry: {e}")
+            self.db.session.rollback()
+            return False
+
+    def add_unmatched_item(
+        self,
+        type: str,
+        title: str,
+        arr_id: int,
+        instance: str,
+        imdb_id: str | None = None,
+        tmdb_id: str | None = None,
+        tvdb_id: str | None = None,
+        main_poster_missing: bool = True,
+        season_number: int | None = None,
+    ) -> bool:
+        try:
+            added = False
+            season_added = False
+            if type == "movie":
+                existing = models.UnmatchedMovies.query.filter_by(title=title).first()
+                if existing is None:
+                    item = models.UnmatchedMovies(
+                        title=title,
+                        arr_id=arr_id,
+                        instance=instance,
+                        imdb_id=imdb_id,
+                        tmdb_id=tmdb_id,
+                    )
+                    self.db.session.add(item)
+                    added = True
+                else:
+                    existing.arr_id = arr_id
+                    existing.instance = instance
+                    existing.imdb_id = imdb_id
+                    existing.tmdb_id = tmdb_id
+            elif type == "show" or type == "season":
+                existing = models.UnmatchedShows.query.filter_by(title=title).first()
+                if existing is None:
+                    show = models.UnmatchedShows(
+                        title=title,
+                        arr_id=arr_id,
+                        main_poster_missing=int(main_poster_missing),
+                        instance=instance,
+                        imdb_id=imdb_id,
+                        tmdb_id=tmdb_id,
+                        tvdb_id=tvdb_id,
+                    )
+                    self.db.session.add(show)
+                    self.db.session.flush()
+                    existing = show
+                    added = main_poster_missing
+                else:
+                    if main_poster_missing and not existing.main_poster_missing:
+                        existing.main_poster_missing = 1
+                        added = True
+                if season_number is not None:
+                    season_str = f"season{int(season_number):02d}"
+                    existing_season = models.UnmatchedSeasons.query.filter_by(
+                        show_id=existing.id, season=season_str
+                    ).first()
+                    if existing_season is None:
+                        season = models.UnmatchedSeasons(
+                            show_id=existing.id, season=season_str
+                        )
+                        self.db.session.add(season)
+                        season_added = True
+                    else:
+                        season_added = False
+                else:
+                    season_added = False
+
+            elif type == "collection":
+                existing = models.UnmatchedCollections.query.filter_by(
+                    title=title
+                ).first()
+                if existing is None:
+                    item = models.UnmatchedCollections(title=title)
+                    self.db.session.add(item)
+                    added = True
+            else:
+                self.logger.error(f"Unknown type: {type}")
+                return False
+
+            if added:
+                stats = models.UnmatchedStats.query.get(1)
+                if stats is None:
+                    return False
+                if type == "movie":
+                    stats.unmatched_movies += 1
+                elif type == "show":
+                    stats.unmatched_series += 1
+                elif type == "collection":
+                    stats.unmatched_collections += 1
+            else:
+                stats = None
+
+            if season_added:
+                if stats is None:
+                    stats = models.UnmatchedStats.query.get(1)
+                if stats:
+                    stats.unmatched_seasons += 1
+
+            self.db.session.commit()
+            return True
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Error adding unmatched item: {e}")
             self.db.session.rollback()
             return False
 

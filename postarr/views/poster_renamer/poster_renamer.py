@@ -32,11 +32,6 @@ poster_renamer = Blueprint("poster_renamer", __name__)
 database = Database(db, postarr_logger)
 
 
-@poster_renamer.route("/poster-renamer")
-def poster_renamer_route():
-    return render_template("poster_renamer/poster_renamer.html")
-
-
 @poster_renamer.route("/serve-image/<path:filename>", methods=["GET"])
 def serve_image(filename):
     settings = models.Settings.query.first()
@@ -126,6 +121,10 @@ def get_images():
                 ),
                 "source_path": file.source_path,
                 "file_hash": file.file_hash,
+                "instance": file.instance,
+                "arr_id": file.arr_id,
+                "imdb_id": file.imdb_id,
+                "tmdb_id": file.tmdb_id,
             }
             if file.media_type == "movies":
                 sorted_files["movies"].append(file_data)
@@ -151,6 +150,11 @@ def get_images():
                             "source_path": file.source_path,
                             "file_hash": file.file_hash,
                             "seasons": [],
+                            "instance": file.instance,
+                            "arr_id": file.arr_id,
+                            "imdb_id": file.imdb_id,
+                            "tmdb_id": file.tmdb_id,
+                            "tvdb_id": file.tvdb_id,
                         }
                     else:
                         if not shows_dict[show_name]["file_path"]:
@@ -178,6 +182,11 @@ def get_images():
                             "source_path": "",
                             "file_hash": "",
                             "seasons": [],
+                            "instance": file.instance,
+                            "arr_id": file.arr_id,
+                            "imdb_id": file.imdb_id,
+                            "tmdb_id": file.tmdb_id,
+                            "tvdb_id": file.tvdb_id,
                         }
                     shows_dict[show_name]["seasons"].append(
                         {
@@ -232,6 +241,17 @@ def delete_poster():
         if file_path.exists() and file_path.is_file():
             file_path.unlink()
             database.delete_file_cache_entry(str(file_path))
+            database.add_unmatched_item(
+                type=data.get("type"),
+                title=data.get("fileName"),
+                arr_id=data.get("arrId"),
+                instance=data.get("instance"),
+                imdb_id=data.get("imdbId"),
+                tmdb_id=data.get("tmdbId"),
+                tvdb_id=data.get("tvdbId"),
+                main_poster_missing=data.get("mainPosterMissing", True),
+                season_number=data.get("seasonNumber"),
+            )
             return jsonify(
                 {"success": True, "message": "Poster deleted successfully."}
             ), 200
@@ -352,7 +372,15 @@ def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
     unmatched_collections = models.UnmatchedCollections.query.all()
 
     movies = sorted(
-        [{"id": movie.id, "title": movie.title} for movie in unmatched_movies],
+        [
+            {
+                "id": movie.id,
+                "title": movie.title,
+                "imdb_id": movie.imdb_id,
+                "tmdb_id": movie.tmdb_id,
+            }
+            for movie in unmatched_movies
+        ],
         key=lambda x: x["title"],
     )
     collections = sorted(
@@ -373,6 +401,9 @@ def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
                 "title": show.title,
                 "main_poster_missing": show.main_poster_missing,
                 "seasons": seasons,
+                "imdb_id": show.imdb_id,
+                "tmdb_id": show.tmdb_id,
+                "tvdb_id": show.tvdb_id,
             }
         )
 
@@ -400,7 +431,7 @@ def fetch_job_history():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-@poster_renamer.route("/poster-renamer/unmatched", methods=["GET"])
+@poster_renamer.route("/unmatched-assets", methods=["GET"])
 def fetch_unmatched_assets():
     try:
         unmatched_media = fetch_unmatched_assets_from_db()

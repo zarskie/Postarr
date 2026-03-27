@@ -39,7 +39,12 @@ class Database:
                     custom_color TEXT,
                     webhook_run INTEGER,
                     uploaded_to_libraries TEXT NOT NULL DEFAULT '[]',
-                    uploaded_editions TEXT NOT NULL DEFAULT '[]'
+                    uploaded_editions TEXT NOT NULL DEFAULT '[]',
+                    instance TEXT,
+                    arr_id INTEGER,
+                    tmdb_id TEXT,
+                    imdb_id TEXT,
+                    tvdb_id TEXT
                 )
                 """
                 )
@@ -49,7 +54,9 @@ class Database:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         title TEXT UNIQUE NOT NULL,
                         arr_id INTEGER,
-                        instance TEXT
+                        instance TEXT,
+                        imdb_id TEXT,
+                        tmdb_id TEXT
                     )
                     """
                 )
@@ -68,7 +75,10 @@ class Database:
                         title TEXT UNIQUE NOT NULL,
                         arr_id INTEGER,
                         main_poster_missing INTEGER NOT NULL DEFAULT 0,
-                        instance TEXT
+                        instance TEXT,
+                        imdb_id TEXT,
+                        tmdb_id TEXT,
+                        tvdb_id TEXT
                     )
                     """
                 )
@@ -127,6 +137,11 @@ class Database:
         border_setting: str | None = None,
         custom_color: str | None = None,
         webhook_run: bool | None = None,
+        instance: str | None = None,
+        arr_id: int | None = None,
+        tmdb_id: str | None = None,
+        imdb_id: str | None = None,
+        tvdb_id: str | None = None,
     ) -> None:
         with self.get_db_connection() as conn:
             with closing(conn.cursor()) as cursor:
@@ -141,9 +156,9 @@ class Database:
                             file_path, file_name, status, has_episodes, has_file, media_type,
                             file_hash, original_file_hash, source_path, border_replaced,
                             border_setting, custom_color, webhook_run,
-                            uploaded_to_libraries, uploaded_editions
+                            uploaded_to_libraries, uploaded_editions, instance, arr_id, tmdb_id, imdb_id, tvdb_id
                         ) VALUES (
-                            :file_path, :file_name, :status, :has_episodes, :has_file, :media_type, :file_hash, :original_file_hash, :source_path, :border_replaced, :border_setting, :custom_color, :webhook_run, :uploaded_to_libraries, :uploaded_editions
+                            :file_path, :file_name, :status, :has_episodes, :has_file, :media_type, :file_hash, :original_file_hash, :source_path, :border_replaced, :border_setting, :custom_color, :webhook_run, :uploaded_to_libraries, :uploaded_editions, :instance, :arr_id, :tmdb_id, :imdb_id, :tvdb_id
                         )
                     """
                     values = {
@@ -162,6 +177,11 @@ class Database:
                         "webhook_run": webhook_run,
                         "uploaded_to_libraries": json.dumps([]),
                         "uploaded_editions": json.dumps([]),
+                        "instance": instance,
+                        "arr_id": arr_id,
+                        "tmdb_id": tmdb_id,
+                        "imdb_id": imdb_id,
+                        "tvdb_id": tvdb_id,
                     }
                     # self.logger.debug(f"Executing SQL: {sql_query}")
                     # self.logger.debug(f"Values: {values}")
@@ -489,6 +509,134 @@ class Database:
                         f"Failed to clear uploaded_to_libraries and uploaded_editions data: {e}"
                     )
 
+    def update_instance(self, file_path: str, instance: str):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                try:
+                    cursor.execute(
+                        "UPDATE file_cache SET instance = ? WHERE file_path = ?",
+                        (
+                            instance,
+                            file_path,
+                        ),
+                    )
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        self.logger.warning(
+                            f"No matching row found for file_path: {file_path}. Update skipped."
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Successfully updated 'instance' to {instance} for {file_path}"
+                        )
+                    conn.commit()
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to updated 'instance' for {file_path}: {e}"
+                    )
+
+    def update_arr_id(self, file_path: str, arr_id: int):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                try:
+                    cursor.execute(
+                        "UPDATE file_cache SET arr_id = ? WHERE file_path = ?",
+                        (
+                            arr_id,
+                            file_path,
+                        ),
+                    )
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        self.logger.warning(
+                            f"No matching row found for file_path: {file_path}. Update skipped."
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Successfully updated 'arr_id' to {arr_id} for {file_path}"
+                        )
+                    conn.commit()
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to updated 'arr_id' for {file_path}: {e}"
+                    )
+
+    def update_tmdb_id(self, file_path: str, tmdb_id: str):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                try:
+                    cursor.execute(
+                        "UPDATE file_cache SET tmdb_id = ? WHERE file_path = ?",
+                        (
+                            tmdb_id,
+                            file_path,
+                        ),
+                    )
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        self.logger.warning(
+                            f"No matching row found for file_path: {file_path}. Update skipped."
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Successfully updated 'tmdb_id' to {tmdb_id} for {file_path}"
+                        )
+                    conn.commit()
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to updated 'tmdb_id' for {file_path}: {e}"
+                    )
+
+    def update_imdb_id(self, file_path: str, imdb_id: str):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                try:
+                    cursor.execute(
+                        "UPDATE file_cache SET imdb_id = ? WHERE file_path = ?",
+                        (
+                            imdb_id,
+                            file_path,
+                        ),
+                    )
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        self.logger.warning(
+                            f"No matching row found for file_path: {file_path}. Update skipped."
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Successfully updated 'imdb_id' to {imdb_id} for {file_path}"
+                        )
+                    conn.commit()
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to updated 'imdb_id' for {file_path}: {e}"
+                    )
+
+    def update_tvdb_id(self, file_path: str, tvdb_id: str):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                try:
+                    cursor.execute(
+                        "UPDATE file_cache SET tvdb_id = ? WHERE file_path = ?",
+                        (
+                            tvdb_id,
+                            file_path,
+                        ),
+                    )
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        self.logger.warning(
+                            f"No matching row found for file_path: {file_path}. Update skipped."
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Successfully updated 'tvdb_id' to {tvdb_id} for {file_path}"
+                        )
+                    conn.commit()
+                except Exception as e:
+                    self.logger.error(f"Failed to updated 'tvdb_id' for {tvdb_id}: {e}")
+
     def remove_upload_data_for_file(self, file_path: str) -> None:
         with self.get_db_connection() as conn:
             with closing(conn.cursor()) as cursor:
@@ -560,8 +708,13 @@ class Database:
                         ),
                         "uploaded_editions": self._safe_json_loads(uploaded_editions),
                         "webhook_run": webhook_flag,
+                        "arr_id": arr_id,
+                        "instance": instance,
+                        "tmdb_id": tmdb_id,
+                        "imdb_id": imdb_id,
+                        "tvdb_id": tvdb_id,
                     }
-                    for file_path, file_name, status, has_episodes, has_file, media_type, file_hash, original_file_hash, source_path, border_replaced, border_setting, custom_color, webhook_flag, uploaded_to_libraries, uploaded_editions in result
+                    for file_path, file_name, status, has_episodes, has_file, media_type, file_hash, original_file_hash, source_path, border_replaced, border_setting, custom_color, webhook_flag, uploaded_to_libraries, uploaded_editions, arr_id, instance, tmdb_id, imdb_id, tvdb_id in result
                 }
 
     def _safe_json_loads(self, json_str: str | None) -> list:
@@ -573,28 +726,36 @@ class Database:
             self.logger.warning(f"Invalid JSON data encountered: {json_str}")
             return []
 
-    def add_unmatched_movie(self, title: str, arr_id: int, instance: str) -> None:
+    def add_unmatched_movie(
+        self, title: str, arr_id: int, instance: str, imdb_id: str, tmdb_id: str
+    ) -> None:
         try:
             with self.get_db_connection() as conn:
                 with closing(conn.cursor()) as cursor:
                     cursor.execute(
-                        "SELECT id, arr_id, instance FROM unmatched_movies WHERE title = ?",
+                        "SELECT id, arr_id, instance, imdb_id, tmdb_id FROM unmatched_movies WHERE title = ?",
                         (title,),
                     )
                     existing = cursor.fetchone()
                     if existing is None:
                         cursor.execute(
                             """
-                            INSERT INTO unmatched_movies (title, arr_id, instance)
-                            VALUES (?, ?, ?)
+                            INSERT INTO unmatched_movies (title, arr_id, instance, imdb_id, tmdb_id)
+                            VALUES (?, ?, ?, ?, ?)
                             """,
-                            (title, arr_id, instance),
+                            (title, arr_id, instance, imdb_id, tmdb_id),
                         )
                         self.logger.debug(
-                            f"Added unmatched movie: title={title}, arr_id={arr_id}, instance={instance}"
+                            f"Added unmatched movie: title={title}, arr_id={arr_id}, instance={instance}, imdb_id={imdb_id}, tmdb_id={tmdb_id}"
                         )
                     else:
-                        movie_id, existing_arr_id, existing_instance = existing
+                        (
+                            movie_id,
+                            existing_arr_id,
+                            existing_instance,
+                            existing_imdb_id,
+                            existing_tmdb_id,
+                        ) = existing
                         if existing_arr_id is None or existing_arr_id != arr_id:
                             cursor.execute(
                                 """
@@ -618,6 +779,30 @@ class Database:
                             )
                             self.logger.debug(
                                 f"Updated unmatched movie: title={title}, instance={instance}"
+                            )
+                        if existing_imdb_id is None or existing_imdb_id != imdb_id:
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_movies
+                                SET imdb_id = ?
+                                WHERE id = ?
+                                """,
+                                (imdb_id, movie_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched movie: title={title}, imdb_id={imdb_id}"
+                            )
+                        if existing_tmdb_id is None or existing_tmdb_id != tmdb_id:
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_movies
+                                SET tmdb_id = ?
+                                WHERE id = ?
+                                """,
+                                (tmdb_id, movie_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched movie: title={title}, tmdb_id={tmdb_id}"
                             )
                 conn.commit()
         except Exception as e:
@@ -648,13 +833,20 @@ class Database:
             self.logger.error(f"Error adding unmatched collection: {e}")
 
     def add_unmatched_show(
-        self, title: str, arr_id: int, main_poster_missing: bool, instance: str
+        self,
+        title: str,
+        arr_id: int,
+        main_poster_missing: bool,
+        instance: str,
+        imdb_id: str,
+        tmdb_id: str,
+        tvdb_id: str,
     ) -> int:
         try:
             with self.get_db_connection() as conn:
                 with closing(conn.cursor()) as cursor:
                     cursor.execute(
-                        "SELECT id, arr_id, main_poster_missing, instance FROM unmatched_shows WHERE title = ?",
+                        "SELECT id, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id FROM unmatched_shows WHERE title = ?",
                         (title,),
                     )
                     existing = cursor.fetchone()
@@ -662,14 +854,22 @@ class Database:
                     if existing is None:
                         cursor.execute(
                             """
-                            INSERT INTO unmatched_shows (title, arr_id, main_poster_missing, instance)
-                            VALUES (?, ?, ?, ?)
+                            INSERT INTO unmatched_shows (title, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                             """,
-                            (title, arr_id, int(main_poster_missing), instance),
+                            (
+                                title,
+                                arr_id,
+                                int(main_poster_missing),
+                                instance,
+                                imdb_id,
+                                tmdb_id,
+                                tvdb_id,
+                            ),
                         )
                         show_id = cursor.lastrowid
                         self.logger.debug(
-                            f"Added unmatched show: title={title}, arr_id={arr_id}, main_poster_missing={bool(main_poster_missing)}"
+                            f"Added unmatched show: title={title}, arr_id={arr_id}, main_poster_missing={bool(main_poster_missing)}, imdb_id={imdb_id}, tmdb_id={tmdb_id}, tvdb_id={tvdb_id}"
                         )
                     else:
                         (
@@ -677,6 +877,9 @@ class Database:
                             current_arr_id,
                             current_main_poster_missing,
                             current_instance,
+                            current_imdb_id,
+                            current_tmdb_id,
+                            current_tvdb_id,
                         ) = existing
                         if current_arr_id is None or current_arr_id != arr_id:
                             cursor.execute(
@@ -713,6 +916,42 @@ class Database:
                             )
                             self.logger.debug(
                                 f"Updated unmatched show: title={title}, instance={instance}"
+                            )
+                        if current_imdb_id is None or current_imdb_id != imdb_id:
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_shows
+                                SET imdb_id = ?
+                                WHERE id = ?
+                                """,
+                                (imdb_id, show_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched show: title={title} imdb_id={imdb_id}"
+                            )
+                        if current_tmdb_id is None or current_tmdb_id != tmdb_id:
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_shows
+                                SET tmdb_id = ?
+                                WHERE id = ?
+                                """,
+                                (tmdb_id, show_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched show: title={title} tmdb_id={tmdb_id}"
+                            )
+                        if current_tvdb_id is None or current_tvdb_id != tvdb_id:
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_shows
+                                SET tvdb_id = ?
+                                WHERE id = ?
+                                """,
+                                (tvdb_id, show_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched show: title={title} tvdb_id={tvdb_id}"
                             )
                 conn.commit()
             if show_id is None:

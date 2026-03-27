@@ -19,7 +19,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
   const customHexRef = useRef(null);
   const borderTypeRef = useRef(null);
   const tooltipTimeout = useRef(null);
-  const [logLevel, setLogLevel] = useState([""]);
+  const [logLevel, setLogLevel] = useState("info");
   const [sourceFolders, setSourceFolders] = useState([""]);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [libraries, setLibraries] = useState([""]);
@@ -129,6 +129,8 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
       const result = await response.json();
       if (result.success && result.folders.length > 0) {
         setFetchFoldersError(null);
+        setBlurredFields(new Set());
+        setErrors((prev) => ({ ...prev, sourceFolders: null }));
         let filtered = result.folders;
         if (folderFilters.mm2k)
           filtered = filtered.filter((f) => f.includes("mm2k"));
@@ -155,6 +157,8 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
       const result = await response.json();
       if (result.success && result.libraries.length > 0) {
         setFetchLibrariesError(null);
+        setBlurredFields(new Set());
+        setErrors((prev) => ({ ...prev, libraries: null }));
         setLibraries((prev) => {
           const existing = prev.filter((l) => l.trim() !== "");
           const newLibraries = result.libraries.filter(
@@ -235,7 +239,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
         },
         borderType: settings.replaceBorder ? borderType : null,
         customHex:
-          settings.replaceBorder && borderType == "custom"
+          settings.replaceBorder && borderType === "custom"
             ? customHex.trim()
             : null,
       };
@@ -505,7 +509,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                 onChange={(e) => {
                   setAssetDirectory(e.target.value);
                   if (
-                    blurredFields.has("assetDirector") &&
+                    blurredFields.has("assetDirectory") &&
                     errors.assetDirectory
                   ) {
                     if (e.target.value.trim()) {
@@ -1137,21 +1141,22 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                     onChange={(e) => {
                       setCustomHex(e.target.value);
                       if (blurredFields.has("customHex") || errors.customHex) {
-                        if (e.target.value.trim()) {
+                        if (isValidHex(e.target.value)) {
                           setErrors((prev) => ({
                             ...prev,
                             customHex: null,
                           }));
+                          setPopupField(null);
                         } else {
                           setErrors((prev) => ({
                             ...prev,
-                            customHex: true,
+                            customHex:
+                              "Please enter a valid hex color (e.g. #ff0000)",
                           }));
                         }
                       }
                     }}
                     onBlur={() => {
-                      setPopupField(null);
                       if (errors.customHex) {
                         setBlurredFields((prev) =>
                           new Set(prev).add("customHex"),

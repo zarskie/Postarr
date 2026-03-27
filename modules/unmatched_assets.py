@@ -129,6 +129,8 @@ class UnmatchedAssets:
                         title=utils.strip_id(movie["title"]),
                         arr_id=movie["id"],
                         instance=movie["instance"],
+                        imdb_id=movie["imdb_id"],
+                        tmdb_id=movie["tmdb_id"],
                     )
                 elif movie.get("has_file", False):
                     unmatched_assets["movies"].append(utils.strip_id(movie["title"]))
@@ -136,6 +138,8 @@ class UnmatchedAssets:
                         title=utils.strip_id(movie["title"]),
                         arr_id=movie["id"],
                         instance=movie["instance"],
+                        imdb_id=movie["imdb_id"],
+                        tmdb_id=movie["tmdb_id"],
                     )
                 else:
                     self.logger.debug(f"Skipping {movie['title']} -> No file on disk")
@@ -164,6 +168,9 @@ class UnmatchedAssets:
                         arr_id=item["id"],
                         main_poster_missing=True,
                         instance=item["instance"],
+                        imdb_id=item["imdb_id"],
+                        tmdb_id=item["tmdb_id"],
+                        tvdb_id=item["tvdb_id"],
                     )
                     unmatched_show["main_poster_missing"] = True
                 else:
@@ -194,6 +201,9 @@ class UnmatchedAssets:
                                         arr_id=item["id"],
                                         main_poster_missing=True,
                                         instance=item["instance"],
+                                        imdb_id=item["imdb_id"],
+                                        tmdb_id=item["tmdb_id"],
+                                        tvdb_id=item["tvdb_id"],
                                     )
                                     unmatched_show["main_poster_missing"] = True
                                 else:
@@ -202,6 +212,9 @@ class UnmatchedAssets:
                                         arr_id=item["id"],
                                         main_poster_missing=False,
                                         instance=item["instance"],
+                                        imdb_id=item["imdb_id"],
+                                        tmdb_id=item["tmdb_id"],
+                                        tvdb_id=item["tvdb_id"],
                                     )
                             if show_id is None:
                                 self.logger.error(
@@ -226,6 +239,9 @@ class UnmatchedAssets:
                                     arr_id=item["id"],
                                     main_poster_missing=False,
                                     instance=item["instance"],
+                                    imdb_id=item["imdb_id"],
+                                    tmdb_id=item["tmdb_id"],
+                                    tvdb_id=item["tvdb_id"],
                                 )
                             self.db.add_unmatched_season(
                                 show_id=show_id, season=season["season"]

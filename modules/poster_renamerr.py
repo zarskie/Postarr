@@ -1361,6 +1361,11 @@ class PosterRenamerr:
         has_episodes: bool | None = None,
         has_file: bool | None = None,
         webhook_run: bool | None = None,
+        arr_id: int | None = None,
+        instance: str | None = None,
+        imdb_id: str | None = None,
+        tmdb_id: str | None = None,
+        tvdb_id: str | None = None,
     ) -> None:
         temp_path = None
         target_path = target_dir / new_file_name
@@ -1383,6 +1388,11 @@ class PosterRenamerr:
             cached_has_episodes = cached_file.get("has_episodes", None)
             cached_has_file = cached_file.get("has_file", None)
             cached_status = cached_file.get("status", None)
+            cached_arr_id = cached_file.get("arr_id", None)
+            cached_instance = cached_file.get("instance", None)
+            cached_imdb_id = cached_file.get("imdb_id", None)
+            cached_tmdb_id = cached_file.get("tmdb_id", None)
+            cached_tvdb_id = cached_file.get("tvdb_id", None)
 
             # Debugging: Log the current and cached values for comparison
             self.logger.debug(f"Checking skip conditions for file: {file_path}")
@@ -1425,7 +1435,36 @@ class PosterRenamerr:
                         f"Updating 'status' for {target_path}: {cached_status} -> {status}"
                     )
                     self.db.update_status(str(target_path), status)
-
+            if cached_instance is None or cached_instance != instance:
+                if instance is not None:
+                    self.logger.debug(
+                        f"Updating 'instance' for {target_path}: {cached_instance} -> {instance}"
+                    )
+                    self.db.update_instance(str(target_path), instance)
+            if cached_arr_id is None or cached_arr_id != arr_id:
+                if arr_id is not None:
+                    self.logger.debug(
+                        f"Updating 'arr_id' for {target_path}: {cached_arr_id} -> {arr_id}"
+                    )
+                    self.db.update_arr_id(str(target_path), arr_id)
+            if cached_tmdb_id is None or cached_tmdb_id != tmdb_id:
+                if tmdb_id is not None:
+                    self.logger.debug(
+                        f"Updating 'tmdb_id' for {target_path}: {cached_tmdb_id} -> {tmdb_id}"
+                    )
+                    self.db.update_tmdb_id(str(target_path), tmdb_id)
+            if cached_imdb_id is None or cached_imdb_id != imdb_id:
+                if imdb_id is not None:
+                    self.logger.debug(
+                        f"Updating 'imdb_id' for {target_path}: {cached_imdb_id} -> {imdb_id}"
+                    )
+                    self.db.update_imdb_id(str(target_path), imdb_id)
+            if cached_tvdb_id is None or cached_tvdb_id != tvdb_id:
+                if tvdb_id is not None:
+                    self.logger.debug(
+                        f"Updating 'tvdb_id' for {target_path}: {cached_tvdb_id} -> {tvdb_id}"
+                    )
+                    self.db.update_tvdb_id(str(target_path), tvdb_id)
             if (
                 cached_file
                 and cached_file["file_path"] == str(target_path)
@@ -1527,6 +1566,11 @@ class PosterRenamerr:
                     border_setting=self.border_setting,
                     custom_color=self.custom_color,
                     webhook_run=webhook_run,
+                    instance=instance,
+                    arr_id=arr_id,
+                    tmdb_id=tmdb_id,
+                    imdb_id=imdb_id,
+                    tvdb_id=tvdb_id,
                 )
                 self.logger.debug(f"Adding new file to database cache: {target_path}")
         except Exception as e:
@@ -1603,6 +1647,10 @@ class PosterRenamerr:
                                 status=data.get("status", None),
                                 has_file=data.get("has_file", None),
                                 webhook_run=webhook_run,
+                                arr_id=movie_data.get("id"),
+                                instance=movie_data.get("instance"),
+                                imdb_id=movie_data.get("imdb_id", None),
+                                tmdb_id=movie_data.get("tmdb_id", None),
                             )
                         else:
                             self.logger.warning(
@@ -1687,6 +1735,11 @@ class PosterRenamerr:
                                 status=data.get("status", None),
                                 has_episodes=data.get("has_episodes", None),
                                 webhook_run=webhook_run,
+                                arr_id=show_data.get("id"),
+                                instance=show_data.get("instance"),
+                                imdb_id=show_data.get("imdb_id", None),
+                                tmdb_id=show_data.get("tmdb_id", None),
+                                tvdb_id=show_data.get("tvdb_id", None),
                             )
                         else:
                             self.logger.warning(
@@ -1706,7 +1759,6 @@ class PosterRenamerr:
         single_item: dict,
         upload_to_plex: bool,
     ) -> dict[str, list] | None:
-        self.logger.debug(pformat(single_item))
         media_dict = {"movies": [], "shows": []}
         instance_name = single_item.get("instance_name", "").lower()
         item_id = single_item.get("item_id")

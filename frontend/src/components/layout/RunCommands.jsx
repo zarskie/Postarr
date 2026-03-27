@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronUp, ChevronDown, Play, X } from "lucide-react";
 import { usePoster } from "../../context/PosterContext";
+import FieldError from "../common/FieldError";
+import { useUnmatched } from "../../context/UnmatchedContext";
+import { isValidHex } from "../utils/validators";
 
 const RunCommands = () => {
   const { refreshFilePaths } = usePoster();
+  const { refreshUnmatchedData } = useUnmatched();
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedModule, setSelectedModule] = useState("");
   const [settings, setSettings] = useState({
@@ -13,34 +17,68 @@ const RunCommands = () => {
     matchAltTitles: false,
     driveSync: false,
     reapplyPosters: false,
-    showAllUnmatched: false,
-    hideCollections: false,
+    borderSetting: "",
+    customColor: "",
   });
   const [logLevel, setLogLevel] = useState("info");
   const [version, setVersion] = useState("");
   const [jobId, setJobId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [jobRunning, setJobRunning] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [popupField, setPopupField] = useState(null);
+  const [blurredFields, setBlurredFields] = useState(new Set());
   const pollRef = useRef(null);
+  const borderSettingRef = useRef(null);
+  const customColorRef = useRef(null);
 
   const fetchedModules = useRef(new Set());
 
   const handleToggle = () => {
     if (!isExpanded) {
       setIsExpanded(true);
+      setErrors({});
+      setBlurredFields(new Set());
     } else {
       setIsExpanded(false);
+      setErrors({});
+      setBlurredFields(new Set());
     }
   };
 
   const handleRun = async () => {
     if (!selectedModule) return;
+
+    if (selectedModule === "border-replacerr") {
+      const newErrors = {};
+      if (!settings.borderSetting)
+        newErrors.borderSetting = "Please select an option";
+      if (settings.borderSetting && settings.borderSetting === "custom") {
+        if (!settings.customColor || !isValidHex(settings.customColor))
+          newErrors.customColor =
+            "Please enter a valid hex color (e.g. #ff0000)";
+      }
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        if (newErrors.borderSetting) {
+          setPopupField("borderSetting");
+          borderSettingRef.current?.focus();
+        } else if (newErrors.customColor) {
+          setPopupField("customColor");
+          customColorRef.current?.focus();
+        }
+        return;
+      }
+    }
+
+    setErrors({});
     try {
       const endpointMap = {
         "poster-renamerr": "/api/poster-renamer/run-renamer-job",
         "plex-uploaderr": "/api/poster-renamer/run-plex-upload-job",
         "drive-sync": "/api/poster-renamer/run-drive-sync-job",
         "unmatched-assets": "/api/poster-renamer/run-unmatched-job",
+        "border-replacerr": "/api/poster-renamer/run-border-replace-job",
       };
       const endpoint = endpointMap[selectedModule];
       if (!endpoint) return;
@@ -51,7 +89,15 @@ const RunCommands = () => {
             ? {
                 settings: { reapplyPosters: settings.reapplyPosters, logLevel },
               }
-            : { settings: { logLevel } };
+            : selectedModule === "border-replacerr"
+              ? {
+                  settings: {
+                    borderSetting: settings.borderSetting,
+                    customColor: settings.customColor,
+                    logLevel,
+                  },
+                }
+              : { settings: { logLevel } };
       setJobRunning(true);
 
       const response = await fetch(endpoint, {
@@ -61,9 +107,13 @@ const RunCommands = () => {
       });
       const result = await response.json();
       if (result.success && result.job_id) {
+        setErrors({});
         setJobId(result.job_id);
         setProgress(0);
         startPolling(result.job_id);
+      } else if (result.success && !result.job_id) {
+        setJobRunning(null);
+        alert(result.message);
       } else if (!result.success) {
         setJobRunning(null);
         alert(result.message);
@@ -93,6 +143,7 @@ const RunCommands = () => {
             setJobId(null);
             setProgress(null);
             refreshFilePaths();
+            refreshUnmatchedData();
           }, 2000);
         }
       } catch (error) {
@@ -118,6 +169,7 @@ const RunCommands = () => {
           "plex-uploaderr": "/api/settings/get-plex-uploaderr",
           "drive-sync": "/api/settings/get-drive-sync",
           "unmatched-assets": "/api/settings/get-unmatched-assets",
+          "border-replacerr": "/api/settings/get-border-replacerr",
         };
         const endpoint = endpointMap[selectedModule];
         if (!endpoint) return;
@@ -143,13 +195,16 @@ const RunCommands = () => {
               reapplyPosters: d.reapply_posters ?? false,
             }));
           }
-          if (selectedModule === "unmatched-assets") {
+          if (selectedModule === "border-replacerr") {
             setLogLevel(d.log_level ?? "info");
             setSettings((prev) => ({
               ...prev,
-              showAllUnmatched: d.show_all_unmatched ?? false,
-              hideCollections: d.hide_collections ?? false,
+              borderSetting: d.border_setting ?? "",
+              customColor: d.custom_color ?? "",
             }));
+          }
+          if (selectedModule === "unmatched-assets") {
+            setLogLevel(d.log_level ?? "info");
           }
           if (selectedModule === "drive-sync") {
             setLogLevel(d.log_level ?? "info");
@@ -191,20 +246,20 @@ const RunCommands = () => {
                 <X size={20} />
               </button>
             </div>
-            <div className="flex flex-col border-t border-gray-800 2xl:flex-row">
+            <div className="flex flex-col border-t border-gray-800 py-2 2xl:flex-row 2xl:items-start">
               <div className="flex flex-col items-center 2xl:mb-2 2xl:flex-row">
                 <div className="flex w-full flex-col px-4 py-2">
                   <span className="mb-2 text-xs font-medium text-gray-300">
                     Module
                   </span>
-                  <div
-                    className={`relative w-full 2xl:w-56 ${selectedModule ? "mb-0" : "mb-2"}`}
-                  >
+                  <div className="relative w-full 2xl:w-56">
                     <select
                       value={selectedModule}
                       onChange={(e) => {
                         const newModule = e.target.value;
                         setSelectedModule(newModule);
+                        setErrors({});
+                        setBlurredFields(new Set());
                         setLogLevel("info");
                       }}
                       className="w-full appearance-none rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 2xl:w-56"
@@ -214,6 +269,7 @@ const RunCommands = () => {
                       <option value="unmatched-assets">Unmatched Assets</option>
                       <option value="plex-uploaderr">Plex Uploaderr</option>
                       <option value="drive-sync">Drive Sync</option>
+                      <option value="border-replacerr">Border Replacerr</option>
                     </select>
                     <ChevronDown
                       size={18}
@@ -391,58 +447,149 @@ const RunCommands = () => {
                   </div>
                 </div>
               )}
-              {selectedModule === "unmatched-assets" && (
-                <div className="mt-2 grid grid-cols-1 gap-y-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:ml-4 2xl:mt-6">
-                  <div className="px-5 py-2">
-                    <label className="flex cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={settings.showAllUnmatched}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            showAllUnmatched: e.target.checked,
-                          })
-                        }
-                        className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm text-white">
-                          Show All Unmatched
+              {selectedModule === "border-replacerr" && (
+                <>
+                  <div className="flex flex-col 2xl:flex-row">
+                    <div className="flex w-full flex-col px-4 py-2">
+                      <span className="mb-2 text-xs font-medium text-gray-300">
+                        Border Type
+                        <span className="text-xs font-medium text-red-500">
+                          {" "}
+                          *
                         </span>
-                        <span className="text-xs text-gray-400">
-                          Show unmatched assets for missing media
-                        </span>
+                      </span>
+                      <div className="relative w-full 2xl:w-56">
+                        <select
+                          value={settings.borderSetting}
+                          ref={borderSettingRef}
+                          onChange={(e) => {
+                            setSettings({
+                              ...settings,
+                              borderSetting: e.target.value,
+                              customColor: "",
+                            });
+                            if (
+                              blurredFields.has("borderSetting") ||
+                              errors.borderSetting
+                            ) {
+                              if (e.target.value.trim()) {
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  borderSetting: null,
+                                }));
+                              } else {
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  borderSetting: true,
+                                }));
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            setPopupField(null);
+                            if (errors.borderSetting) {
+                              setBlurredFields((prev) =>
+                                new Set(prev).add("borderSetting"),
+                              );
+                            }
+                          }}
+                          className={`w-full appearance-none rounded-md border bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 2xl:w-56 ${blurredFields.has("borderSetting") && errors.borderSetting ? "border-red-500 focus:ring-red-500" : "border-gray-700 focus:ring-blue-500"}`}
+                        >
+                          <option value="">Select border type</option>
+                          <option value="remove">Remove</option>
+                          <option value="black">Black</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                        <ChevronDown
+                          size={18}
+                          className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 2xl:right-2"
+                        />
+                        {popupField === "borderSetting" &&
+                          errors.borderSetting && (
+                            <div className="absolute z-10 w-full">
+                              <FieldError message={errors.borderSetting} />
+                            </div>
+                          )}
                       </div>
-                    </label>
-                  </div>
-                  <div className="px-5 py-2">
-                    <label className="flex cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={settings.hideCollections}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            hideCollections: e.target.checked,
-                          })
-                        }
-                        className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm text-white">
-                          Hide Collections
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          Hide collections from unmatched assets
-                        </span>
+                      <div className="min-h-[1rem]">
+                        {blurredFields.has("borderSetting") &&
+                          errors.borderSetting && (
+                            <span className="text-xs text-red-500">
+                              Required
+                            </span>
+                          )}
                       </div>
-                    </label>
+                    </div>
+                    {settings.borderSetting === "custom" && (
+                      <div className="flex w-full flex-col px-4 py-2">
+                        <span className="mb-2 text-xs font-medium text-gray-300">
+                          Hex Code
+                          <span className="text-xs font-medium text-red-500">
+                            {" "}
+                            *
+                          </span>
+                        </span>
+                        <div className="relative w-full 2xl:w-56">
+                          <input
+                            type="text"
+                            value={settings.customColor}
+                            ref={customColorRef}
+                            onChange={(e) => {
+                              setSettings({
+                                ...settings,
+                                customColor: e.target.value,
+                              });
+                              if (
+                                blurredFields.has("customColor") ||
+                                errors.customColor
+                              ) {
+                                if (isValidHex(e.target.value)) {
+                                  setErrors((prev) => ({
+                                    ...prev,
+                                    customColor: null,
+                                  }));
+                                  setPopupField(null);
+                                } else {
+                                  setErrors((prev) => ({
+                                    ...prev,
+                                    customColor:
+                                      "Please enter a valid hex color (e.g. #ff0000)",
+                                  }));
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (errors.customColor) {
+                                setBlurredFields((prev) =>
+                                  new Set(prev).add("customColor"),
+                                );
+                              }
+                            }}
+                            className={`w-full appearance-none rounded-md border bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 2xl:w-56 ${blurredFields.has("customColor") && errors.customColor ? "border-red-500 focus:ring-red-500" : "border-gray-700 focus:ring-blue-500"}`}
+                            placeholder="#000000"
+                          />
+                          {popupField === "customColor" &&
+                            errors.customColor && (
+                              <div className="absolute z-10 w-full">
+                                <FieldError message={errors.customColor} />
+                              </div>
+                            )}
+                        </div>
+                        <div className="min-h-[1rem]">
+                          {blurredFields.has("customColor") &&
+                            errors.customColor && (
+                              <span className="text-xs text-red-500">
+                                Required
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                </>
               )}
               {selectedModule && (
-                <div className="mb-2 mt-2 flex w-full self-end px-4 py-2 lg:ml-auto lg:w-auto">
+                <div className="flex w-full self-end px-4 py-2 lg:ml-auto lg:w-auto">
                   <button
                     className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-600 px-2 py-1.5 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={handleRun}
@@ -466,7 +613,7 @@ const RunCommands = () => {
               Run Commands
             </span>
           </button>
-          <span className="px-2 text-xs font-medium text-gray-400">
+          <span className="px-4 text-xs font-medium text-gray-400">
             Postarr v{version}
           </span>
         </div>
@@ -477,7 +624,10 @@ const RunCommands = () => {
             <div className="h-1.5 w-full rounded-full bg-gray-700">
               <div
                 className="h-1.5 rounded-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                style={{
+                  width: `${progress}%`,
+                  background: "linear-gradient(to right, #3b82f6, #8b5cf6)",
+                }}
               />
             </div>
             <span className="mt-1 text-xs text-gray-400">{progress}%</span>

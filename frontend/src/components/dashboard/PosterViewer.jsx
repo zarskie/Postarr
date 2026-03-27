@@ -2,18 +2,20 @@ import { useEffect, useState } from "react";
 import ShowRow from "../utils/ShowRow";
 import ListRow from "../utils/ListRow";
 import { usePoster } from "../../context/PosterContext";
+import { useUnmatched } from "../../context/UnmatchedContext";
 
 function PosterViewer() {
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
   const { filePaths, refreshFilePaths } = usePoster();
+  const { refreshUnmatchedData } = useUnmatched();
   const [selectedItem, setSelectedItem] = useState(null);
   const [openPopover, setOpenPopover] = useState(null);
   const filters = [
     { id: "all", label: "All" },
     { id: "movies", label: "Movies" },
-    { id: "shows", label: "Shows" },
+    { id: "shows", label: "Series" },
     { id: "collections", label: "Collections" },
   ];
   const search = searchValue.toLowerCase();
@@ -51,8 +53,8 @@ function PosterViewer() {
   return (
     <>
       <div className="flex flex-col">
-        <div className="flex flex-col overflow-hidden rounded-md border border-gray-700 bg-gray-900 lg:flex-row">
-          <div className="flex max-h-[600px] w-full flex-col border-b border-gray-700  bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
+        <div className="flex flex-col overflow-hidden rounded border border-gray-700 bg-gray-900 lg:flex-row">
+          <div className="flex max-h-[550px] w-full flex-col border-b border-gray-700  bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
             <nav className="mb-2 flex-shrink-0 border-b border-gray-700 bg-gray-900">
               <ul className="flex text-sm font-medium">
                 {filters.map((filter) => {
@@ -93,7 +95,8 @@ function PosterViewer() {
                     if (item.type === "show")
                       return (
                         <ShowRow
-                          key={item.file_hash}
+                          key={item.arr_id}
+                          type={item.type}
                           show={item}
                           onSelect={setSelectedItem}
                           selectedItem={selectedItem}
@@ -102,12 +105,16 @@ function PosterViewer() {
                           popoverPos={popoverPos}
                           setPopoverPos={setPopoverPos}
                           hasChevron={true}
-                          onDelete={refreshFilePaths}
+                          onDelete={() => {
+                            refreshFilePaths();
+                            refreshUnmatchedData();
+                          }}
                         />
                       );
                     return (
                       <ListRow
                         key={item.file_hash}
+                        type={item.type}
                         item={item}
                         selectedItem={selectedItem}
                         onSelect={setSelectedItem}
@@ -116,7 +123,10 @@ function PosterViewer() {
                         popoverPos={popoverPos}
                         setPopoverPos={setPopoverPos}
                         hasChevron={false}
-                        onDelete={refreshFilePaths}
+                        onDelete={() => {
+                          refreshFilePaths();
+                          refreshUnmatchedData();
+                        }}
                       />
                     );
                   })}
@@ -124,6 +134,7 @@ function PosterViewer() {
                   filteredMovies.map((movie) => (
                     <ListRow
                       key={movie.file_hash}
+                      type="movie"
                       item={movie}
                       selectedItem={selectedItem}
                       onSelect={setSelectedItem}
@@ -131,13 +142,17 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={refreshFilePaths}
+                      onDelete={() => {
+                        refreshFilePaths();
+                        refreshUnmatchedData();
+                      }}
                     />
                   ))}
                 {activeFilter === "shows" &&
                   filteredShows.map((show) => (
                     <ShowRow
-                      key={show.file_hash}
+                      key={show.arr_id}
+                      type="show"
                       show={show}
                       onSelect={setSelectedItem}
                       selectedItem={selectedItem}
@@ -145,13 +160,17 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={refreshFilePaths}
+                      onDelete={() => {
+                        refreshFilePaths();
+                        refreshUnmatchedData();
+                      }}
                     />
                   ))}
                 {activeFilter === "collections" &&
                   filteredCollections.map((collection) => (
                     <ListRow
                       key={collection.file_hash}
+                      type="collection"
                       item={collection}
                       selectedItem={selectedItem}
                       onSelect={setSelectedItem}
@@ -159,20 +178,23 @@ function PosterViewer() {
                       setOpenPopover={setOpenPopover}
                       popoverPos={popoverPos}
                       setPopoverPos={setPopoverPos}
-                      onDelete={refreshFilePaths}
+                      onDelete={() => {
+                        refreshFilePaths();
+                        refreshUnmatchedData();
+                      }}
                     />
                   ))}
               </div>
             </div>
           </div>
-          <div className="flex min-h-[600px] w-full items-center justify-center overflow-hidden border-gray-700 bg-gray-950 p-6 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
+          <div className="flex min-h-[550px] w-full items-center justify-center overflow-hidden border-gray-700 bg-gray-900 p-6 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
             {selectedItem ? (
               selectedItem.file_path ? (
                 <img
                   key={selectedItem.file_path}
                   src={`/api/poster-renamer${selectedItem.file_path}`}
                   alt={selectedItem.file_name}
-                  className="animate-in fade-in h-full max-h-[550px] w-full rounded object-contain text-gray-300 duration-300 lg:max-h-full"
+                  className="h-full max-h-[600px] w-full rounded object-contain text-gray-300 duration-300 animate-in fade-in lg:max-h-full"
                 />
               ) : (
                 <span className="text-sm text-gray-500">No poster found</span>

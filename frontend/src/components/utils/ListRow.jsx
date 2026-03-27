@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { Ellipsis, Trash2 } from "lucide-react";
 function ListRow({
+  type,
   item,
   selectedItem,
   onSelect,
@@ -57,13 +58,21 @@ function ListRow({
               className="fixed z-50 w-40 rounded border border-gray-700 bg-gray-900 py-1 shadow-lg duration-100"
             >
               <button
-                className="w-full rounded px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                className="w-full rounded px-4 py-2 text-left text-sm text-gray-400 hover:bg-gray-800 hover:text-white"
                 onClick={(e) => {
                   e.stopPropagation();
                   fetch("/api/poster-renamer/delete-poster", {
                     method: "DELETE",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ filePath: item.file_path }),
+                    body: JSON.stringify({
+                      type: type,
+                      filePath: item.file_path,
+                      fileName: item.file_name.trim(),
+                      arrId: item.arr_id,
+                      imdbId: item.imdb_id,
+                      tmdbId: item.tmdb_id,
+                      instance: item.instance,
+                    }),
                   })
                     .then((res) => res.json())
                     .then((data) => {

@@ -510,6 +510,10 @@ def save_poster_renamerr():
             return jsonify(
                 {"success": False, "message": "Poster root directory does not exist"}
             ), 404
+        if not os.path.exists(asset_directory):
+            return jsonify(
+                {"success": False, "message": "Asset directory does not exist"}
+            ), 404
 
         existing_settings = models.Settings.query.first()
         if existing_settings:
@@ -837,6 +841,28 @@ def get_drive_sync():
                     "service_account": rclone_settings.service_account
                     if rclone_settings
                     else None,
+                },
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/get-border-replacerr", methods=["GET"])
+def get_border_replacerr():
+    try:
+        settings = models.Settings.query.first()
+
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "log_level": settings.log_level_border_replacerr
+                    if settings
+                    else "info",
+                    "border_setting": settings.border_setting if settings else "",
+                    "custom_color": settings.custom_color if settings else "",
                 },
             }
         )

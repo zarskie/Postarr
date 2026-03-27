@@ -36,6 +36,11 @@ class FileCache(db.Model):
     webhook_run = db.Column(db.Integer, nullable=True)
     uploaded_to_libraries = db.Column(JSONEncodedText, default=[], nullable=False)
     uploaded_editions = db.Column(JSONEncodedText, default=[], nullable=False)
+    instance = db.Column(db.String, nullable=True)
+    arr_id = db.Column(db.Integer, nullable=True)
+    tmdb_id = db.Column(db.String, nullable=True)
+    imdb_id = db.Column(db.String, nullable=True)
+    tvdb_id = db.Column(db.String, nullable=True)
 
 
 class UnmatchedMovies(db.Model):
@@ -44,6 +49,8 @@ class UnmatchedMovies(db.Model):
     title = db.Column(db.String, unique=True, nullable=False)
     arr_id = db.Column(db.Integer, nullable=True)
     instance = db.Column(db.String, nullable=True)
+    imdb_id = db.Column(db.String, nullable=True)
+    tmdb_id = db.Column(db.String, nullable=True)
 
 
 class UnmatchedCollections(db.Model):
@@ -59,6 +66,9 @@ class UnmatchedShows(db.Model):
     arr_id = db.Column(db.Integer, nullable=True)
     main_poster_missing = db.Column(db.Integer, default=0, nullable=False)
     instance = db.Column(db.String, nullable=True)
+    imdb_id = db.Column(db.String, nullable=True)
+    tmdb_id = db.Column(db.String, nullable=True)
+    tvdb_id = db.Column(db.String, nullable=True)
     seasons = db.relationship(
         "UnmatchedSeasons", backref="show", cascade="all, delete-orphan", lazy=True
     )

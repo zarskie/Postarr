@@ -1,13 +1,39 @@
-import { Image, ImageOff } from "lucide-react";
+import { Image, ImageOff, BarChart2 } from "lucide-react";
 import { useState } from "react";
 import PosterViewer from "../components/dashboard/PosterViewer";
+import UnmatchedStats from "../components/dashboard/UnmatchedStats";
+import UnmatchedAssets from "../components/dashboard/UnmatchedAssets";
+import { usePoster } from "../context/PosterContext";
+import { useUnmatched } from "../context/UnmatchedContext";
 
 function Home() {
   const [activeSection, setActiveSection] = useState("poster-viewer");
+  const { filePaths } = usePoster();
+  const { unmatchedData } = useUnmatched();
   const sections = [
     { id: "poster-viewer", label: "Poster Viewer", icon: Image },
+    { id: "unmatched-stats", label: "Unmatched Stats", icon: BarChart2 },
     { id: "unmatched-assets", label: "Unmatched Assets", icon: ImageOff },
   ];
+  const [unmatchedFilter, setUnmatchedFilter] = useState("all");
+  const assetsHasData =
+    filePaths.movies.length > 0 ||
+    filePaths.collections.length > 0 ||
+    Object.keys(filePaths.shows).length > 0;
+
+  const unmatchedHasData =
+    unmatchedData.unmatchedMedia.movies.length > 0 ||
+    unmatchedData.unmatchedMedia.collections.length > 0 ||
+    unmatchedData.unmatchedMedia.shows.length > 0;
+
+  const typeToFilter = {
+    movies: "movies",
+    collections: "collections",
+    "series (main posters)": "shows",
+    seasons: "shows",
+    all: "all",
+  };
+
   return (
     <div>
       <h1 className="mb-6 px-2 text-2xl font-bold text-white xl:px-0">
@@ -45,8 +71,8 @@ function Home() {
         </nav>
         <div className="flex-1 p-4 md:p-6">
           {/* Poster Viewer Sections */}
-          {activeSection === "poster-viewer" && (
-            <>
+          <>
+            <div className={activeSection === "poster-viewer" ? "" : "hidden"}>
               <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
                 <div>
                   <h2 className="mb-2 text-xl font-semibold text-white">
@@ -55,24 +81,72 @@ function Home() {
                   <p className="text-sm text-gray-400">View plex assets.</p>
                 </div>
               </div>
-              <div
-                className={activeSection === "poster-viewer" ? "" : "hidden"}
-              >
-                <PosterViewer />
-              </div>
-            </>
-          )}
-          {/* Unmatched Assets Section */}
-          {activeSection === "unmatched-assets" && (
-            <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
-              <div>
-                <h2 className="mb-2 text-xl font-semibold text-white">
-                  Unmatched Assets
-                </h2>
-                <p className="text-sm text-gray-400">View unmatched assets.</p>
-              </div>
+              {assetsHasData ? (
+                <div>
+                  <PosterViewer />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  Run poster renamerr to view assets.
+                </p>
+              )}
             </div>
-          )}
+          </>
+          {/* Unmatched Stats Section */}
+          <>
+            <div
+              className={activeSection === "unmatched-stats" ? "" : "hidden"}
+            >
+              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
+                <div>
+                  <h2 className="mb-2 text-xl font-semibold text-white">
+                    Unmatched Stats
+                  </h2>
+                  <p className="text-sm text-gray-400">View unmatched stats.</p>
+                </div>
+              </div>
+              {unmatchedHasData ? (
+                <div>
+                  <UnmatchedStats
+                    onMissingClick={(type) => {
+                      setUnmatchedFilter(typeToFilter[type] ?? "all");
+                      setActiveSection("unmatched-assets");
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  Run unmatched assets to view stats.
+                </p>
+              )}
+            </div>
+          </>
+          {/* Unmatched Assets Section */}
+          <>
+            <div
+              className={activeSection === "unmatched-assets" ? "" : "hidden"}
+            >
+              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
+                <div>
+                  <h2 className="mb-2 text-xl font-semibold text-white">
+                    Unmatched Assets
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    View unmatched assets.
+                  </p>
+                </div>
+              </div>
+              {unmatchedHasData ? (
+                <div>
+                  <UnmatchedAssets activeFilter={unmatchedFilter} />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  Run unmatched assets to view missing posters.
+                </p>
+              )}
+            </div>
+          </>
         </div>
       </div>
     </div>

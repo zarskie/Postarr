@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useUnmatched } from "../../context/UnmatchedContext";
 
 const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
   const [logLevel, setLogLevel] = useState("info");
@@ -9,6 +10,7 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
     hideCollections: false,
   });
   const [initialState, setInitialState] = useState(null);
+  const { refreshUnmatchedData } = useUnmatched();
 
   const handleSave = async () => {
     setIsLoading(true);
@@ -33,6 +35,7 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
           logLevel: logLevel.trim(),
           settings: { ...settings },
         });
+        refreshUnmatchedData();
       } else {
         alert(`Failed!: ${result.message}`);
       }

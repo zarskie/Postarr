@@ -427,6 +427,14 @@ def run_border_replacer_task(
                     log_level_str = overrides["logLevel"].upper()
                     log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
                     border_replacerr_payload.log_level = log_level
+                if "borderSetting" in overrides:
+                    border_replacerr_payload.border_setting = overrides.get(
+                        "borderSetting", border_replacerr_payload.border_setting
+                    )
+                if "customColor" in overrides:
+                    border_replacerr_payload.custom_color = overrides.get(
+                        "customColor", border_replacerr_payload.custom_color
+                    )
 
             border_setting = border_replacerr_payload.border_setting
             custom_color = border_replacerr_payload.custom_color
