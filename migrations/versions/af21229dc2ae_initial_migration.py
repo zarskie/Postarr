@@ -1,8 +1,8 @@
-"""initial
+"""initial migration
 
-Revision ID: f9e1b0f86c57
+Revision ID: af21229dc2ae
 Revises:
-Create Date: 2026-03-03 22:19:50.134012
+Create Date: 2026-03-27 18:25:36.991785
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 from postarr.models.file_cache import JSONEncodedText
 
 # revision identifiers, used by Alembic.
-revision = "f9e1b0f86c57"
+revision = "af21229dc2ae"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -45,13 +45,20 @@ def upgrade():
         sa.Column("webhook_run", sa.Integer(), nullable=True),
         sa.Column("uploaded_to_libraries", JSONEncodedText(), nullable=False),
         sa.Column("uploaded_editions", JSONEncodedText(), nullable=False),
+        sa.Column("instance", sa.String(), nullable=True),
+        sa.Column("arr_id", sa.Integer(), nullable=True),
+        sa.Column("tmdb_id", sa.String(), nullable=True),
+        sa.Column("imdb_id", sa.String(), nullable=True),
+        sa.Column("tvdb_id", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("file_path"),
     )
     op.create_table(
         "gdrives",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("drive_type", sa.String(), nullable=True),
         sa.Column("drive_name", sa.String(), nullable=True),
         sa.Column("drive_id", sa.String(), nullable=True),
+        sa.Column("friendly_name", sa.String(), nullable=True),
         sa.Column("drive_location", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -84,9 +91,10 @@ def upgrade():
         "rclone",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("client_id", sa.String(), nullable=True),
-        sa.Column("rclone_token", sa.String(), nullable=True),
-        sa.Column("rclone_secret", sa.String(), nullable=True),
+        sa.Column("oauth_token", sa.String(), nullable=True),
+        sa.Column("client_secret", sa.String(), nullable=True),
         sa.Column("service_account", sa.String(), nullable=True),
+        sa.Column("auth_method", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -107,6 +115,7 @@ def upgrade():
         sa.Column("log_level_border_replacerr", sa.String(), nullable=False),
         sa.Column("log_level_drive_sync", sa.String(), nullable=False),
         sa.Column("poster_root", sa.String(), nullable=True),
+        sa.Column("drive_root", sa.String(), nullable=True),
         sa.Column("target_path", sa.String(), nullable=True),
         sa.Column("source_dirs", sa.String(), nullable=True),
         sa.Column("library_names", sa.String(), nullable=True),
@@ -124,6 +133,10 @@ def upgrade():
         sa.Column("reapply_posters", sa.Integer(), nullable=False),
         sa.Column("show_all_unmatched", sa.Integer(), nullable=False),
         sa.Column("disable_unmatched_collections", sa.Integer(), nullable=False),
+        sa.Column("poster_renamerr_configured", sa.Integer(), nullable=False),
+        sa.Column("unmatched_assets_configured", sa.Integer(), nullable=False),
+        sa.Column("plex_uploaderr_configured", sa.Integer(), nullable=False),
+        sa.Column("drive_sync_configured", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -147,6 +160,9 @@ def upgrade():
         sa.Column("title", sa.String(), nullable=False),
         sa.Column("arr_id", sa.Integer(), nullable=True),
         sa.Column("instance", sa.String(), nullable=True),
+        sa.Column("imdb_id", sa.String(), nullable=True),
+        sa.Column("tmdb_id", sa.String(), nullable=True),
+        sa.Column("is_missing", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("title"),
     )
@@ -157,20 +173,23 @@ def upgrade():
         sa.Column("arr_id", sa.Integer(), nullable=True),
         sa.Column("main_poster_missing", sa.Integer(), nullable=False),
         sa.Column("instance", sa.String(), nullable=True),
+        sa.Column("imdb_id", sa.String(), nullable=True),
+        sa.Column("tmdb_id", sa.String(), nullable=True),
+        sa.Column("tvdb_id", sa.String(), nullable=True),
+        sa.Column("is_missing", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("title"),
     )
     op.create_table(
         "unmatched_stats",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("total_movies", sa.Integer(), nullable=False),
-        sa.Column("total_series", sa.Integer(), nullable=False),
-        sa.Column("total_seasons", sa.Integer(), nullable=False),
         sa.Column("total_collections", sa.Integer(), nullable=False),
-        sa.Column("unmatched_movies", sa.Integer(), nullable=False),
-        sa.Column("unmatched_series", sa.Integer(), nullable=False),
-        sa.Column("unmatched_seasons", sa.Integer(), nullable=False),
-        sa.Column("unmatched_collections", sa.Integer(), nullable=False),
+        sa.Column("total_movies_all", sa.Integer(), nullable=False),
+        sa.Column("total_series_all", sa.Integer(), nullable=False),
+        sa.Column("total_seasons_all", sa.Integer(), nullable=False),
+        sa.Column("total_movies_with_file", sa.Integer(), nullable=False),
+        sa.Column("total_series_with_episodes", sa.Integer(), nullable=False),
+        sa.Column("total_seasons_with_episodes", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -187,6 +206,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("show_id", sa.Integer(), nullable=False),
         sa.Column("season", sa.String(), nullable=False),
+        sa.Column("is_missing", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["show_id"], ["unmatched_shows.id"], ondelete="CASCADE"
         ),

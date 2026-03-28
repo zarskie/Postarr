@@ -56,7 +56,8 @@ class Database:
                         arr_id INTEGER,
                         instance TEXT,
                         imdb_id TEXT,
-                        tmdb_id TEXT
+                        tmdb_id TEXT,
+                        is_missing INTEGER NOT NULL DEFAULT 0
                     )
                     """
                 )
@@ -78,7 +79,8 @@ class Database:
                         instance TEXT,
                         imdb_id TEXT,
                         tmdb_id TEXT,
-                        tvdb_id TEXT
+                        tvdb_id TEXT,
+                        is_missing INTEGER NOT NULL DEFAULT 0
                     )
                     """
                 )
@@ -88,6 +90,7 @@ class Database:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         show_id INTEGER NOT NULL,
                         season TEXT NOT NULL,
+                        is_missing INTEGER NOT NULL DEFAULT 0,
                         FOREIGN KEY (show_id) REFERENCES unmatched_shows (id) ON DELETE CASCADE,
                         UNIQUE (show_id, season)
                     )
@@ -97,14 +100,13 @@ class Database:
                     """
                     CREATE TABLE IF NOT EXISTS unmatched_stats (
                     id INTEGER PRIMARY KEY,
-                    total_movies INTEGER NOT NULL DEFAULT 0,
-                    total_series INTEGER NOT NULL DEFAULT 0,
-                    total_seasons INTEGER NOT NULL DEFAULT 0,
                     total_collections INTEGER NOT NULL DEFAULT 0,
-                    unmatched_movies INTEGER NOT NULL DEFAULT 0,
-                    unmatched_series INTEGER NOT NULL DEFAULT 0,
-                    unmatched_seasons INTEGER NOT NULL DEFAULT 0,
-                    unmatched_collections INTEGER NOT NULL DEFAULT 0
+                    total_movies_all INTEGER NOT NULL DEFAULT 0,
+                    total_series_all INTEGER NOT NULL DEFAULT 0,
+                    total_seasons_all INTEGER NOT NULL DEFAULT 0,
+                    total_movies_with_file INTEGER NOT NULL DEFAULT 0,
+                    total_series_with_episodes INTEGER NOT NULL DEFAULT 0,
+                    total_seasons_with_episodes INTEGER NOT NULL DEFAULT 0
                     )
                     """
                 )
@@ -727,26 +729,39 @@ class Database:
             return []
 
     def add_unmatched_movie(
-        self, title: str, arr_id: int, instance: str, imdb_id: str, tmdb_id: str
+        self,
+        title: str,
+        arr_id: int,
+        instance: str,
+        imdb_id: str,
+        tmdb_id: str,
+        is_missing: bool = False,
     ) -> None:
         try:
             with self.get_db_connection() as conn:
                 with closing(conn.cursor()) as cursor:
                     cursor.execute(
-                        "SELECT id, arr_id, instance, imdb_id, tmdb_id FROM unmatched_movies WHERE title = ?",
+                        "SELECT id, arr_id, instance, imdb_id, tmdb_id, is_missing FROM unmatched_movies WHERE title = ?",
                         (title,),
                     )
                     existing = cursor.fetchone()
                     if existing is None:
                         cursor.execute(
                             """
-                            INSERT INTO unmatched_movies (title, arr_id, instance, imdb_id, tmdb_id)
-                            VALUES (?, ?, ?, ?, ?)
+                            INSERT INTO unmatched_movies (title, arr_id, instance, imdb_id, tmdb_id, is_missing)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             """,
-                            (title, arr_id, instance, imdb_id, tmdb_id),
+                            (
+                                title,
+                                arr_id,
+                                instance,
+                                imdb_id,
+                                tmdb_id,
+                                int(is_missing),
+                            ),
                         )
                         self.logger.debug(
-                            f"Added unmatched movie: title={title}, arr_id={arr_id}, instance={instance}, imdb_id={imdb_id}, tmdb_id={tmdb_id}"
+                            f"Added unmatched movie: title={title}, arr_id={arr_id}, instance={instance}, imdb_id={imdb_id}, tmdb_id={tmdb_id}, is_missing={is_missing}"
                         )
                     else:
                         (
@@ -755,6 +770,7 @@ class Database:
                             existing_instance,
                             existing_imdb_id,
                             existing_tmdb_id,
+                            existing_is_missing,
                         ) = existing
                         if existing_arr_id is None or existing_arr_id != arr_id:
                             cursor.execute(
@@ -804,6 +820,18 @@ class Database:
                             self.logger.debug(
                                 f"Updated unmatched movie: title={title}, tmdb_id={tmdb_id}"
                             )
+                        if existing_is_missing != int(is_missing):
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_movies
+                                SET is_missing = ?
+                                WHERE id = ?
+                                """,
+                                (int(is_missing), movie_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched movie: title={title}, is_missing={is_missing}"
+                            )
                 conn.commit()
         except Exception as e:
             self.logger.error(f"Error adding unmatched movie: {e}")
@@ -841,12 +869,13 @@ class Database:
         imdb_id: str,
         tmdb_id: str,
         tvdb_id: str,
+        is_missing: bool = False,
     ) -> int:
         try:
             with self.get_db_connection() as conn:
                 with closing(conn.cursor()) as cursor:
                     cursor.execute(
-                        "SELECT id, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id FROM unmatched_shows WHERE title = ?",
+                        "SELECT id, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id, is_missing FROM unmatched_shows WHERE title = ?",
                         (title,),
                     )
                     existing = cursor.fetchone()
@@ -854,8 +883,8 @@ class Database:
                     if existing is None:
                         cursor.execute(
                             """
-                            INSERT INTO unmatched_shows (title, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO unmatched_shows (title, arr_id, main_poster_missing, instance, imdb_id, tmdb_id, tvdb_id, is_missing)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 title,
@@ -865,11 +894,12 @@ class Database:
                                 imdb_id,
                                 tmdb_id,
                                 tvdb_id,
+                                int(is_missing),
                             ),
                         )
                         show_id = cursor.lastrowid
                         self.logger.debug(
-                            f"Added unmatched show: title={title}, arr_id={arr_id}, main_poster_missing={bool(main_poster_missing)}, imdb_id={imdb_id}, tmdb_id={tmdb_id}, tvdb_id={tvdb_id}"
+                            f"Added unmatched show: title={title}, arr_id={arr_id}, main_poster_missing={bool(main_poster_missing)}, imdb_id={imdb_id}, tmdb_id={tmdb_id}, tvdb_id={tvdb_id}, is_missing={is_missing}"
                         )
                     else:
                         (
@@ -880,6 +910,7 @@ class Database:
                             current_imdb_id,
                             current_tmdb_id,
                             current_tvdb_id,
+                            current_is_missing,
                         ) = existing
                         if current_arr_id is None or current_arr_id != arr_id:
                             cursor.execute(
@@ -953,6 +984,18 @@ class Database:
                             self.logger.debug(
                                 f"Updated unmatched show: title={title} tvdb_id={tvdb_id}"
                             )
+                        if current_is_missing != int(is_missing):
+                            cursor.execute(
+                                """
+                                UPDATE unmatched_shows
+                                SET is_missing = ?
+                                WHERE id = ?
+                                """,
+                                (int(is_missing), show_id),
+                            )
+                            self.logger.debug(
+                                f"Updated unmatched movie: title={title}, is_missing={is_missing}"
+                            )
                 conn.commit()
             if show_id is None:
                 raise ValueError("Failed to insert unmatched show into the database.")
@@ -962,23 +1005,32 @@ class Database:
             self.logger.error(f"Error adding unmatched show: {e}")
             raise
 
-    def add_unmatched_season(self, show_id: int, season: str) -> None:
+    def add_unmatched_season(
+        self, show_id: int, season: str, is_missing: bool = False
+    ) -> None:
         try:
             with self.get_db_connection() as conn:
                 with closing(conn.cursor()) as cursor:
                     cursor.execute(
-                        "SELECT id FROM unmatched_seasons WHERE show_id = ? AND season = ?",
+                        "SELECT id, is_missing FROM unmatched_seasons WHERE show_id = ? AND season = ?",
                         (show_id, season),
                     )
                     existing = cursor.fetchone()
                     if existing is None:
                         cursor.execute(
                             """
-                            INSERT INTO unmatched_seasons (show_id, season)
-                            VALUES (?, ?)
+                            INSERT INTO unmatched_seasons (show_id, season, is_missing)
+                            VALUES (?, ?, ?)
                             """,
-                            (show_id, season),
+                            (show_id, season, int(is_missing)),
                         )
+                    else:
+                        season_id, existing_is_missing = existing
+                        if existing_is_missing != int(is_missing):
+                            cursor.execute(
+                                "UPDATE unmatched_seasons SET is_missing = ? WHERE id = ?",
+                                (int(is_missing), season_id),
+                            )
                 conn.commit()
         except Exception as e:
             self.logger.error(f"Error adding unmatched season: {e}")
@@ -989,7 +1041,7 @@ class Database:
                 if db_table == "unmatched_shows":
                     cursor.execute(
                         """
-                        SELECT unmatched_shows.id, unmatched_shows.title, unmatched_shows.main_poster_missing, unmatched_seasons.season
+                        SELECT unmatched_shows.id, unmatched_shows.title, unmatched_shows.main_poster_missing, unmatched_shows.is_missing, unmatched_seasons.season, unmatched_seasons.is_missing AS season_is_missing
                         FROM unmatched_shows
                         LEFT JOIN unmatched_seasons ON unmatched_shows.id = unmatched_seasons.show_id
                         """
@@ -1003,10 +1055,16 @@ class Database:
                                 "id": show_id,
                                 "title": row["title"],
                                 "main_poster_missing": bool(row["main_poster_missing"]),
+                                "is_missing": bool(row["is_missing"]),
                                 "seasons": [],
                             }
                         if row["season"]:
-                            unmatched_shows[show_id]["seasons"].append(row["season"])
+                            unmatched_shows[show_id]["seasons"].append(
+                                {
+                                    "season": row["season"],
+                                    "is_missing": bool(row["season_is_missing"]),
+                                }
+                            )
                     return list(unmatched_shows.values())
                 else:
                     cursor.execute(f"SELECT * FROM {db_table}")
@@ -1071,8 +1129,8 @@ class Database:
             with closing(conn.cursor()) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO unmatched_stats (id, total_movies, total_series, total_seasons, total_collections, unmatched_movies, unmatched_series, unmatched_seasons, unmatched_collections)
-                    VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)
+                    INSERT INTO unmatched_stats (id, total_collections, total_movies_all, total_series_all, total_seasons_all, total_movies_with_file, total_series_with_episodes, total_seasons_with_episodes)
+                    VALUES (1, 0, 0, 0, 0, 0, 0, 0)
                     ON CONFLICT(id) DO NOTHING
                     """
                 )

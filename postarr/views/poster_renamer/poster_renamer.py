@@ -290,79 +290,131 @@ def get_jobs_data():
 def fetch_unmatched_stats_from_db() -> dict[str, int | str]:
     stats = models.UnmatchedStats.query.get(1)
     if stats:
-        grand_total = (
-            stats.total_movies
-            + stats.total_series
-            + stats.total_seasons
+        unmatched_movies_all = models.UnmatchedMovies.query.count()
+        unmatched_movies_with_file = models.UnmatchedMovies.query.filter_by(
+            is_missing=0
+        ).count()
+        unmatched_series_all = models.UnmatchedShows.query.filter_by(
+            main_poster_missing=1
+        ).count()
+        unmatched_series_with_file = models.UnmatchedShows.query.filter_by(
+            main_poster_missing=1, is_missing=0
+        ).count()
+        unmatched_seasons_all = models.UnmatchedSeasons.query.count()
+        unmatched_seasons_with_file = models.UnmatchedSeasons.query.filter_by(
+            is_missing=0
+        ).count()
+        unmatched_collections = models.UnmatchedCollections.query.count()
+        grand_total_all = (
+            stats.total_movies_all
+            + stats.total_series_all
+            + stats.total_seasons_all
             + stats.total_collections
         )
-        unmatched_grand_total = (
-            stats.unmatched_movies
-            + stats.unmatched_series
-            + stats.unmatched_seasons
-            + stats.unmatched_collections
+        grand_total_with_file = (
+            stats.total_movies_with_file
+            + stats.total_series_with_episodes
+            + stats.total_seasons_with_episodes
+            + stats.total_collections
         )
-        percent_complete_movies = (
-            100 * (stats.total_movies - stats.unmatched_movies) / stats.total_movies
-            if stats.total_movies
-            else 0
+        unmatched_grand_total_all = (
+            unmatched_movies_all
+            + unmatched_series_all
+            + unmatched_seasons_all
+            + unmatched_collections
         )
-        percent_complete_shows = (
-            100 * (stats.total_series - stats.unmatched_series) / stats.total_series
-            if stats.total_series
-            else 0
+        unmatched_grand_total_with_file = (
+            unmatched_movies_with_file
+            + unmatched_series_with_file
+            + unmatched_seasons_with_file
+            + unmatched_collections
         )
-        percent_complete_seasons = (
-            100 * (stats.total_seasons - stats.unmatched_seasons) / stats.total_seasons
-            if stats.total_seasons
-            else 0
-        )
-        percent_complete_collections = (
-            100
-            * (stats.total_collections - stats.unmatched_collections)
-            / stats.total_collections
-            if stats.total_collections
-            else 0
-        )
-        percent_complete_grand_total = (
-            100 * (grand_total - unmatched_grand_total) / grand_total
-            if grand_total
-            else 0
-        )
+
+        def pct(matched, total):
+            return f"{100 * matched / total:.2f}%" if total else "0%"
+
         return {
-            "total_movies": stats.total_movies,
-            "percent_complete_movies": f"{percent_complete_movies:.2f}%",
-            "total_series": stats.total_series,
-            "percent_complete_series": f"{percent_complete_shows:.2f}%",
-            "total_seasons": stats.total_seasons,
-            "percent_complete_seasons": f"{percent_complete_seasons:.2f}%",
+            "total_movies_all": stats.total_movies_all,
+            "total_series_all": stats.total_series_all,
+            "total_seasons_all": stats.total_seasons_all,
+            "percent_complete_movies_all": pct(
+                stats.total_movies_all - unmatched_movies_all, stats.total_movies_all
+            ),
+            "percent_complete_series_all": pct(
+                stats.total_series_all - unmatched_series_all, stats.total_series_all
+            ),
+            "percent_complete_seasons_all": pct(
+                stats.total_seasons_all - unmatched_seasons_all,
+                stats.total_seasons_all,
+            ),
+            "grand_total_all": grand_total_all,
+            "percent_complete_grand_total_all": pct(
+                grand_total_all - unmatched_grand_total_all, grand_total_all
+            ),
+            "total_movies_with_file": stats.total_movies_with_file,
+            "total_series_with_episodes": stats.total_series_with_episodes,
+            "total_seasons_with_episodes": stats.total_seasons_with_episodes,
+            "percent_complete_movies_with_file": pct(
+                stats.total_movies_with_file - unmatched_movies_with_file,
+                stats.total_movies_with_file,
+            ),
+            "percent_complete_series_with_episodes": pct(
+                stats.total_series_with_episodes - unmatched_series_with_file,
+                stats.total_series_with_episodes,
+            ),
+            "percent_complete_seasons_with_episodes": pct(
+                stats.total_seasons_with_episodes - unmatched_seasons_with_file,
+                stats.total_seasons_with_episodes,
+            ),
+            "grand_total_with_file": grand_total_with_file,
+            "percent_complete_grand_total_with_file": pct(
+                grand_total_with_file - unmatched_grand_total_with_file,
+                grand_total_with_file,
+            ),
             "total_collections": stats.total_collections,
-            "percent_complete_collections": f"{percent_complete_collections:.2f}%",
-            "grand_total": grand_total,
-            "percent_complete_grand_total": f"{percent_complete_grand_total:.2f}%",
-            "unmatched_movies": stats.unmatched_movies,
-            "unmatched_series": stats.unmatched_series,
-            "unmatched_seasons": stats.unmatched_seasons,
-            "unmatched_collections": stats.unmatched_collections,
-            "unmatched_grand_total": unmatched_grand_total,
+            "percent_complete_collections": pct(
+                stats.total_collections - unmatched_collections,
+                stats.total_collections,
+            ),
+            "unmatched_movies_all": unmatched_movies_all,
+            "unmatched_movies_with_file": unmatched_movies_with_file,
+            "unmatched_series_all": unmatched_series_all,
+            "unmatched_series_with_file": unmatched_series_with_file,
+            "unmatched_seasons_all": unmatched_seasons_all,
+            "unmatched_seasons_with_file": unmatched_seasons_with_file,
+            "unmatched_collections": unmatched_collections,
+            "unmatched_grand_total_all": unmatched_grand_total_all,
+            "unmatched_grand_total_with_file": unmatched_grand_total_with_file,
         }
     else:
         return {
-            "total_movies": 0,
-            "percent_complete_movies": "0%",
-            "total_series": 0,
-            "percent_complete_series": "0%",
-            "total_seasons": 0,
-            "percent_complete_seasons": "0%",
+            "total_movies_all": 0,
+            "total_series_all": 0,
+            "total_seasons_all": 0,
+            "percent_complete_movies_all": "0%",
+            "percent_complete_series_all": "0%",
+            "percent_complete_seasons_all": "0%",
+            "grand_total_all": 0,
+            "percent_complete_grand_total_all": "0%",
+            "total_movies_with_file": 0,
+            "total_series_with_episodes": 0,
+            "total_seasons_with_episodes": 0,
+            "percent_complete_movies_with_file": "0%",
+            "percent_complete_series_with_episodes": "0%",
+            "percent_complete_seasons_with_episodes": "0%",
+            "grand_total_with_file": 0,
+            "percent_complete_grand_total_with_file": "0%",
             "total_collections": 0,
             "percent_complete_collections": "0%",
-            "grand_total": 0,
-            "percent_complete_grand_total": "0%",
-            "unmatched_movies": 0,
-            "unmatched_series": 0,
-            "unmatched_seasons": 0,
+            "unmatched_movies_all": 0,
+            "unmatched_movies_with_file": 0,
+            "unmatched_series_all": 0,
+            "unmatched_series_with_file": 0,
+            "unmatched_seasons_all": 0,
+            "unmatched_seasons_with_file": 0,
             "unmatched_collections": 0,
-            "unmatched_grand_total": 0,
+            "unmatched_grand_total_all": 0,
+            "unmatched_grand_total_with_file": 0,
         }
 
 
@@ -378,6 +430,7 @@ def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
                 "title": movie.title,
                 "imdb_id": movie.imdb_id,
                 "tmdb_id": movie.tmdb_id,
+                "is_missing": bool(movie.is_missing),
             }
             for movie in unmatched_movies
         ],
@@ -393,7 +446,12 @@ def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
     shows = []
     for show in sorted(unmatched_shows, key=lambda x: x.title):
         seasons = [
-            {"id": seasons.id, "season": seasons.season} for seasons in show.seasons
+            {
+                "id": season.id,
+                "season": season.season,
+                "is_missing": bool(season.is_missing),
+            }
+            for season in show.seasons
         ]
         shows.append(
             {
@@ -404,16 +462,28 @@ def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
                 "imdb_id": show.imdb_id,
                 "tmdb_id": show.tmdb_id,
                 "tvdb_id": show.tvdb_id,
+                "is_missing": bool(show.is_missing),
             }
         )
 
-    return {"movies": movies, "shows": shows, "collections": collections}
+    return {
+        "movies": movies,
+        "shows": shows,
+        "collections": collections,
+    }
 
 
 def fetch_hide_collection_flag():
     settings = models.Settings.query.first()
     if settings:
         return bool(settings.disable_unmatched_collections)
+    return False
+
+
+def fetch_show_all_unmatched_flag():
+    settings = models.Settings.query.first()
+    if settings:
+        return bool(settings.show_all_unmatched)
     return False
 
 
@@ -437,12 +507,14 @@ def fetch_unmatched_assets():
         unmatched_media = fetch_unmatched_assets_from_db()
         unmatched_counts = fetch_unmatched_stats_from_db()
         disable_collections = fetch_hide_collection_flag()
+        show_all_unmatched = fetch_show_all_unmatched_flag()
         return jsonify(
             {
                 "success": True,
                 "unmatched_media": unmatched_media,
                 "unmatched_counts": unmatched_counts,
                 "disable_collections": disable_collections,
+                "show_all_unmatched": show_all_unmatched,
             }
         )
     except Exception as e:

@@ -51,6 +51,7 @@ class UnmatchedMovies(db.Model):
     instance = db.Column(db.String, nullable=True)
     imdb_id = db.Column(db.String, nullable=True)
     tmdb_id = db.Column(db.String, nullable=True)
+    is_missing = db.Column(db.Integer, default=0, nullable=False)
 
 
 class UnmatchedCollections(db.Model):
@@ -69,6 +70,7 @@ class UnmatchedShows(db.Model):
     imdb_id = db.Column(db.String, nullable=True)
     tmdb_id = db.Column(db.String, nullable=True)
     tvdb_id = db.Column(db.String, nullable=True)
+    is_missing = db.Column(db.Integer, default=0, nullable=False)
     seasons = db.relationship(
         "UnmatchedSeasons", backref="show", cascade="all, delete-orphan", lazy=True
     )
@@ -83,6 +85,7 @@ class UnmatchedSeasons(db.Model):
         nullable=False,
     )
     season = db.Column(db.String, nullable=False)
+    is_missing = db.Column(db.Integer, default=0, nullable=False)
     __table_args__ = (
         db.UniqueConstraint("show_id", "season", name="unique_show_season"),
     )
@@ -94,11 +97,10 @@ class UnmatchedStats(db.Model):
         db.Integer,
         primary_key=True,
     )
-    total_movies = db.Column(db.Integer, default=0, nullable=False)
-    total_series = db.Column(db.Integer, default=0, nullable=False)
-    total_seasons = db.Column(db.Integer, default=0, nullable=False)
     total_collections = db.Column(db.Integer, default=0, nullable=False)
-    unmatched_movies = db.Column(db.Integer, default=0, nullable=False)
-    unmatched_series = db.Column(db.Integer, default=0, nullable=False)
-    unmatched_seasons = db.Column(db.Integer, default=0, nullable=False)
-    unmatched_collections = db.Column(db.Integer, default=0, nullable=False)
+    total_movies_all = db.Column(db.Integer, default=0, nullable=False)
+    total_series_all = db.Column(db.Integer, default=0, nullable=False)
+    total_seasons_all = db.Column(db.Integer, default=0, nullable=False)
+    total_movies_with_file = db.Column(db.Integer, default=0, nullable=False)
+    total_series_with_episodes = db.Column(db.Integer, default=0, nullable=False)
+    total_seasons_with_episodes = db.Column(db.Integer, default=0, nullable=False)

@@ -7,6 +7,7 @@ function UnmatchedSummary({
   totalCount,
   percentComplete,
   onMissingClick,
+  showAllUnmatched,
 }) {
   const percent = parseFloat(percentComplete);
   const [isOpen, setIsOpen] = useState(true);
