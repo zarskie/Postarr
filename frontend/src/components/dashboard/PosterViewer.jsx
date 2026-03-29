@@ -101,7 +101,7 @@ function PosterViewer() {
                     if (item.type === "show")
                       return (
                         <ShowRow
-                          key={item.arr_id}
+                          key={`show-${item.arr_id}-${item.instance}`}
                           type={item.type}
                           show={item}
                           onSelect={setSelectedItem}
@@ -116,7 +116,7 @@ function PosterViewer() {
                       );
                     return (
                       <ListRow
-                        key={item.file_hash}
+                        key={`${item.type}-${item.file_hash}-${item.instance}`}
                         type={item.type}
                         item={item}
                         selectedItem={selectedItem}
@@ -133,7 +133,7 @@ function PosterViewer() {
                 {activeFilter === "movies" &&
                   filteredMovies.map((movie) => (
                     <ListRow
-                      key={movie.file_hash}
+                      key={`movie-${movie.file_hash}-${movie.instance}`}
                       type="movie"
                       item={movie}
                       selectedItem={selectedItem}
@@ -148,7 +148,7 @@ function PosterViewer() {
                 {activeFilter === "shows" &&
                   filteredShows.map((show) => (
                     <ShowRow
-                      key={show.arr_id}
+                      key={`show-${show.arr_id}-${show.instance}`}
                       type="show"
                       show={show}
                       onSelect={setSelectedItem}

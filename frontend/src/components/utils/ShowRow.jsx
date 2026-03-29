@@ -12,9 +12,11 @@ function ShowRow({
   setPopoverPos,
   onDelete,
 }) {
-  const isSelected = selectedItem?.arr_id === show.arr_id;
+  const isSelected =
+    selectedItem?.arr_id === show.arr_id &&
+    selectedItem?.instance === show.instance;
   const containsSelected = show.seasons.some(
-    (season) => season.file_hash === selectedItem?.arr_id,
+    (season) => season.file_hash === selectedItem?.file_hash,
   );
   const [manualOpen, setManualOpen] = useState(null);
   const open = manualOpen !== null ? manualOpen : containsSelected;
@@ -60,7 +62,9 @@ function ShowRow({
           {!mainPosterMissing && (
             <button
               className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-white"
-              onClick={(e) => handleEllipsis(e, show.arr_id)}
+              onClick={(e) =>
+                handleEllipsis(e, `show-${show.arr_id}-${show.instance}`)
+              }
             >
               <Ellipsis size={18} className="cursor-default" />
             </button>
@@ -84,7 +88,7 @@ function ShowRow({
           className={`pointer-events-none absolute inset-0 z-0 transition-colors ${isSelected ? "bg-gray-800" : "group-hover:bg-gray-800"}`}
         />
       </div>
-      {openPopover === show.arr_id &&
+      {openPopover === `show-${show.arr_id}-${show.instance}` &&
         createPortal(
           <div
             style={{

@@ -12,7 +12,10 @@ function ListRow({
   hasChevron = false,
   onDelete,
 }) {
-  const isSelected = selectedItem?.file_hash === item.file_hash;
+  const isSelected =
+    selectedItem?.type === item.type &&
+    selectedItem?.file_hash === item.file_hash &&
+    selectedItem?.instance === item.instance;
   return (
     <div className="group relative flex w-full items-center">
       <button
@@ -21,7 +24,7 @@ function ListRow({
         className={`relative z-10 w-full px-4 py-2 text-left text-sm transition-colors ${isSelected ? "text-white" : "text-gray-300 hover:text-white"}`}
       >
         <span
-          className={`absolute left-0 top-0 h-full w-1 rounded-r ${selectedItem?.file_hash === item.file_hash ? "bg-blue-500" : "bg-transparent"}`}
+          className={`absolute left-0 top-0 h-full w-1 rounded-r ${isSelected ? "bg-blue-500" : "bg-transparent"}`}
         ></span>
         {item.file_name}
         {isSelected && (
@@ -41,14 +44,16 @@ function ListRow({
               left: rect.right - 160,
             });
             setOpenPopover(
-              openPopover === item.file_hash ? null : item.file_hash,
+              openPopover === `${item.type}-${item.file_hash}-${item.instance}`
+                ? null
+                : `${item.type}-${item.file_hash}-${item.instance}`,
             );
           }}
         >
           <Ellipsis size={18} className="cursor-default" />
         </button>
         {hasChevron && <div className="w-8" />}
-        {openPopover === item.file_hash &&
+        {openPopover === `${item.type}-${item.file_hash}-${item.instance}` &&
           createPortal(
             <div
               style={{
@@ -96,7 +101,7 @@ function ListRow({
           )}
       </div>
       <div
-        className={`pointer-events-none absolute inset-0 z-0 transition-colors ${selectedItem?.file_hash === item.file_hash ? "bg-gray-800" : "group-hover:bg-gray-800"}`}
+        className={`pointer-events-none absolute inset-0 z-0 transition-colors ${isSelected ? "bg-gray-800" : "group-hover:bg-gray-800"}`}
       />
     </div>
   );
