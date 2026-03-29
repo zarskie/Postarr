@@ -22,6 +22,7 @@ const RunCommands = () => {
   });
   const [logLevel, setLogLevel] = useState("info");
   const [version, setVersion] = useState("");
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [jobRunning, setJobRunning] = useState(null);
@@ -222,6 +223,17 @@ const RunCommands = () => {
     fetch("/api/settings/version")
       .then((res) => res.json())
       .then((data) => setVersion(data.version));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/check-update")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setUpdateAvailable(data.update_available);
+        }
+      })
+      .catch((err) => console.error("Failed to check for updates:", err));
   }, []);
 
   return (
@@ -614,9 +626,19 @@ const RunCommands = () => {
               Run Commands
             </span>
           </button>
-          <span className="px-4 text-xs font-medium text-gray-400">
-            Postarr v{version}
-          </span>
+          <div className="flex items-center">
+            <a
+              className={`rounded-full border border-blue-700 bg-blue-600 px-4 py-1 text-xs font-medium text-white hover:bg-blue-700 ${updateAvailable ? "" : "hidden"}`}
+              href="https://github.com/zarskie/Postarr/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Update Available
+            </a>
+            <span className="px-4 py-1 text-xs font-medium text-gray-400">
+              Postarr v{version}
+            </span>
+          </div>
         </div>
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${jobId && progress !== null ? "max-h-12" : "max-h-0"}`}

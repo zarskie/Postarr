@@ -15,6 +15,29 @@ def get_version():
     return jsonify({"version": os.environ.get("VERSION", "dev")})
 
 
+@settings.route("/check-update", methods=["GET"])
+def check_update():
+    try:
+        response = requests.get(
+            "https://api.github.com/repos/zarskie/Postarr/tags",
+            headers={"Accept": "application/vnd.github.v3+json"},
+            timeout=5,
+        )
+        data = response.json()
+        latest = data[0].get("name", "") if data else ""
+        current = os.environ.get("VERSION", "dev")
+        return jsonify(
+            {
+                "success": True,
+                "current": current,
+                "latest": latest,
+                "update_available": latest != f"v{current}" and latest != current,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @settings.route("/get-drive-presets", methods=["GET"])
 def get_drive_presets():
     try:
