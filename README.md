@@ -1,0 +1,1 @@
+For support, visit the [TRaSH-Guides Discord](https://trash-guides.info/discord) and look for **Postarr** under community apps.
