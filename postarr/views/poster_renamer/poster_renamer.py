@@ -83,7 +83,7 @@ def get_images():
             )
 
         def strip_id(name: str) -> str:
-            return re.sub(r"\{.*?\}", "", name)
+            return re.sub(r"\{.*?\}", "", name).strip()
 
         shows_dict = {}
 

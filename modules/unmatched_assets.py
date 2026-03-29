@@ -518,14 +518,11 @@ class UnmatchedAssets:
                 cb(job_id, 50, ProgressState.IN_PROGRESS)
 
             self.logger.debug("Getting all unmatched assets and asset counts")
-            unmatched_assets = self.get_unmatched_assets(
+            unmatched_assets_for_cleanup = self.get_unmatched_assets(
                 media_dict,
                 collections_dict,
                 assets,
-                self.show_all_unmatched,
-            )
-            self.logger.debug(
-                "Unmatched assets summary:\n%s", json.dumps(unmatched_assets, indent=4)
+                show_all_unmatched=True,
             )
             asset_count_dict = self.get_unmatched_count_dict(
                 media_dict,
@@ -535,7 +532,18 @@ class UnmatchedAssets:
                 cb(job_id, 70, ProgressState.IN_PROGRESS)
             self.logger.debug("Cleaning up database")
 
-            self.cleanup_unmatched_media(unmatched_assets)
+            self.cleanup_unmatched_media(unmatched_assets_for_cleanup)
+
+            if self.show_all_unmatched:
+                unmatched_assets = unmatched_assets_for_cleanup
+            else:
+                unmatched_assets = self.get_unmatched_assets(
+                    media_dict, collections_dict, assets, self.show_all_unmatched
+                )
+            self.logger.debug(
+                "Unmatched assets summary:\n%s", json.dumps(unmatched_assets, indent=4)
+            )
+
             self.print_output(
                 asset_count_dict, unmatched_assets, self.show_all_unmatched
             )
