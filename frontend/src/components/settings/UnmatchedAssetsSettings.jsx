@@ -10,7 +10,12 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
     hideCollections: false,
   });
   const [initialState, setInitialState] = useState(null);
-  const { refreshUnmatchedData } = useUnmatched();
+  const { refreshUnmatchedData, unmatchedData } = useUnmatched();
+
+  const unmatchedHasData =
+    unmatchedData.unmatchedMedia.movies.length > 0 ||
+    unmatchedData.unmatchedMedia.collections.length > 0 ||
+    unmatchedData.unmatchedMedia.shows.length > 0;
 
   const handleSave = async () => {
     setIsLoading(true);
@@ -41,6 +46,27 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
       }
     } catch (error) {
       console.error("Error saving settings:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleReset = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/settings/reset-unmatched-data", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        refreshUnmatchedData();
+      } else {
+        console.error("Failed to reset unmatched data:", data.message);
+      }
+    } catch (error) {
+      console.error("Error resetting unmatched data:", error);
     } finally {
       setIsLoading(false);
     }
@@ -156,6 +182,17 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
               : initialState !== null && !hasChanges
                 ? "No Changes"
                 : "Save"}
+          </button>
+          <button
+            onClick={handleReset}
+            disabled={isLoading || !unmatchedHasData}
+            className="flex w-full items-center justify-center self-start rounded-md bg-red-700 px-4 py-2 text-sm text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {isLoading
+              ? "Resetting..."
+              : !unmatchedHasData
+                ? "Nothing to reset"
+                : "Reset data"}
           </button>
         </div>
       </div>

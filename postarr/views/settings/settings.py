@@ -29,6 +29,22 @@ def get_drive_presets():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+@settings.route("/reset-unmatched-data", methods=["DELETE"])
+def reset_unmatched_data():
+    try:
+        models.UnmatchedSeasons.query.delete()
+        models.UnmatchedShows.query.delete()
+        models.UnmatchedMovies.query.delete()
+        models.UnmatchedCollections.query.delete()
+        models.UnmatchedStats.query.delete()
+        db.session.commit()
+        return jsonify(
+            {"success": True, "message": "Unmatched data reset successfully."}
+        )
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @settings.route("/add-instance", methods=["POST"])
 def add_instance():
     try:
