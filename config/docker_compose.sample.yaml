@@ -6,6 +6,7 @@ services:
       # - TZ=America/Vancouver
       # - PUID=99
       # - PGID=100
+      # - MAIN_LOG_LEVEL=INFO
     ports:
       # - "8000:8000"
     volumes:
