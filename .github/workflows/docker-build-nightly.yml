@@ -11,13 +11,13 @@ on:
     paths:
       - "postarr/**"
       - "modules/**"
+      - "frontend/**"
       - "Dockerfile"
       - "**/package*.json"
       - "migrations/**"
       - "Payloads/**"
       - "entrypoint.sh"
       - "migrate_db.py"
-      - "progress.py"
   workflow_dispatch:
 jobs:
   build-and-push:
