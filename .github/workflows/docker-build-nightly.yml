@@ -18,6 +18,10 @@ on:
       - "Payloads/**"
       - "entrypoint.sh"
       - "migrate_db.py"
+      - "poetry.lock"
+      - "pyproject.toml"
+      - "gunicorn.conf.py"
+      - "progress.py"
   workflow_dispatch:
 jobs:
   build-and-push:
