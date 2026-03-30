@@ -32,7 +32,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/zarskie/Postarr
+          images: ghcr.io/zarskie/postarr
           tags: |
             type=raw,value=nightly
             type=sha,prefix=,format=short
@@ -58,8 +58,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/zarskie/Postarr:nightly
-          cache-to: type=registry,ref=ghcr.io/zarskie/Postarr:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/zarskie/postarr:nightly
+          cache-to: type=registry,ref=ghcr.io/zarskie/postarr:buildcache,mode=max
 
       - name: Show Docker image info
         run: |
