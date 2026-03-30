@@ -41,6 +41,14 @@ def check_update():
 @settings.route("/get-drive-presets", methods=["GET"])
 def get_drive_presets():
     try:
+        url = "https://raw.githubusercontent.com/zarskie/Postarr/refs/heads/develop/drives.json"
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        presets = response.json()
+        return jsonify({"success": True, "presets": presets})
+    except requests.RequestException:
+        pass
+    try:
         base_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         )
