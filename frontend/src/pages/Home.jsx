@@ -16,6 +16,13 @@ function Home() {
     { id: "unmatched-assets", label: "Unmatched Assets", icon: ImageOff },
   ];
   const [unmatchedFilter, setUnmatchedFilter] = useState("all");
+
+  const isComplete = unmatchedData.showAllUnmatched
+    ? unmatchedData.unmatchedCounts.unmatched_grand_total_all === 0 &&
+      unmatchedData.unmatchedCounts.grand_total_all > 0
+    : unmatchedData.unmatchedCounts.unmatched_grand_total_with_file === 0 &&
+      unmatchedData.unmatchedCounts.grand_total_with_file > 0;
+
   const assetsHasData =
     filePaths.movies.length > 0 ||
     filePaths.collections.length > 0 ||
@@ -105,7 +112,7 @@ function Home() {
                   <p className="text-sm text-gray-400">View unmatched stats.</p>
                 </div>
               </div>
-              {unmatchedHasData ? (
+              {unmatchedHasData || isComplete ? (
                 <div>
                   <UnmatchedStats
                     onMissingClick={(type) => {
@@ -136,9 +143,15 @@ function Home() {
                   </p>
                 </div>
               </div>
-              {unmatchedHasData ? (
+              {unmatchedHasData || isComplete ? (
                 <div>
-                  <UnmatchedAssets activeFilter={unmatchedFilter} />
+                  {isComplete ? (
+                    <p className="mb-4 text-sm text-gray-400">
+                      🎉 All media has posters — nothing unmatched!
+                    </p>
+                  ) : (
+                    <UnmatchedAssets activeFilter={unmatchedFilter} />
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400">
