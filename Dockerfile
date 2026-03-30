@@ -40,7 +40,7 @@ COPY migrate_db.py /code/migrate_db.py
 # Set environment variables to switch between development and production
 ENV APP_MODE="WEB"
 ENV MAIN_LOG_LEVEL="INFO"
-ENV VERSION="0.8.0-alpha.3"
+ENV VERSION="0.8.0-alpha.4"
 ENV RCLONE_CONFIG="/config/rclone/rclone.conf"
 ENV SEARCH_DEBUG=
 
