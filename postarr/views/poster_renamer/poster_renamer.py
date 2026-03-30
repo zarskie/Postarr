@@ -3,16 +3,16 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from pprint import pformat
+from typing import Any
 
 from flask import (
     Blueprint,
     jsonify,
-    render_template,
     request,
     send_from_directory,
 )
 
-import modules.settings
+from modules.settings import Settings as module_settings
 from postarr import (
     db,
     models,
@@ -418,7 +418,7 @@ def fetch_unmatched_stats_from_db() -> dict[str, int | str]:
         }
 
 
-def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, str | list]]]:
+def fetch_unmatched_assets_from_db() -> dict[str, list[dict[str, Any]]]:
     unmatched_movies = models.UnmatchedMovies.query.all()
     unmatched_shows = models.UnmatchedShows.query.all()
     unmatched_collections = models.UnmatchedCollections.query.all()
@@ -527,9 +527,11 @@ def recieve_webhook():
     from postarr import db
     from postarr.models import Settings
 
-    job_name = modules.Settings.POSTER_RENAMERR.value
+    job_name = module_settings.POSTER_RENAMERR.value
 
-    run_single_item = Settings.query.with_entities(Settings.run_single_item).scalar()
+    settings = Settings.query.first()
+    run_single_item = settings.run_single_item if settings else None
+
     if run_single_item is None:
         postarr_logger.error("No settings found or run_single_item is not configured.")
         database.add_job_to_history(job_name, "failed", "webhook")
@@ -663,7 +665,7 @@ def run_unmatched():
     data = request.get_json() or {}
     overrides = data.get("settings", {})
     result = run_unmatched_assets_task(flask_app, overrides=overrides)
-    job_name = modules.Settings.UNMATCHED_ASSETS.value
+    job_name = module_settings.UNMATCHED_ASSETS.value
 
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
@@ -681,7 +683,7 @@ def run_renamer():
     data = request.get_json() or {}
     overrides = data.get("settings", {})
     result = run_renamer_task(flask_app, overrides=overrides)
-    job_name = modules.Settings.POSTER_RENAMERR.value
+    job_name = module_settings.POSTER_RENAMERR.value
 
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
@@ -697,7 +699,7 @@ def run_border_replacer():
     data = request.get_json() or {}
     overrides = data.get("settings", {})
     result = run_border_replacer_task(flask_app, overrides=overrides)
-    job_name = modules.Settings.BORDER_REPLACERR.value
+    job_name = module_settings.BORDER_REPLACERR.value
 
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
@@ -722,7 +724,7 @@ def run_plex_upload():
     overrides = data.get("settings", {})
 
     result = run_plex_uploaderr_task(flask_app, overrides=overrides)
-    job_name = modules.Settings.PLEX_UPLOADERR.value
+    job_name = module_settings.PLEX_UPLOADERR.value
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
     else:
@@ -740,7 +742,7 @@ def run_drive_sync():
     overrides = data.get("settings", {})
 
     result = run_drive_sync_task(flask_app, overrides=overrides)
-    job_name = modules.Settings.DRIVE_SYNC.value
+    job_name = module_settings.DRIVE_SYNC.value
     if result["success"] is False:
         database.add_job_to_history(job_name, "failed", "manual")
     else:
