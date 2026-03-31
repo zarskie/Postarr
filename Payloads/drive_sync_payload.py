@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class Payload:
     log_level: int
     client_id: str
-    rclone_token: str
-    rclone_secret: str
+    oauth_token: str
+    client_secret: str
     service_account: str
     gdrives: list

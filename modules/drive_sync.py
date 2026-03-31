@@ -22,8 +22,8 @@ class DriveSync:
                 log_level=payload.log_level if payload.log_level else logging.INFO,
             )
             self.client_id = payload.client_id
-            self.rclone_token = payload.rclone_token
-            self.rclone_secret = payload.rclone_secret
+            self.oauth_token = payload.oauth_token
+            self.client_secret = payload.client_secret
             self.service_account = payload.service_account
             self.gdrives = payload.gdrives
         except Exception as e:
@@ -118,7 +118,7 @@ class DriveSync:
             drive_id = drive["drive_id"]
 
             if (
-                self.client_id and self.rclone_secret and self.rclone_token
+                self.client_id and self.client_secret and self.oauth_token
             ) and not self.service_account:
                 self.logger.debug(f"Using OAuth authentication for '{drive_name}'")
             elif self.service_account:
@@ -163,10 +163,10 @@ class DriveSync:
                 rclone_command.append(f"--log-file={rclone_full_log_path}")
 
             # Initialize using OAuth
-            if self.client_id and self.rclone_secret and self.rclone_token:
+            if self.client_id and self.client_secret and self.oauth_token:
                 rclone_command.extend(["--drive-client-id", self.client_id])
-                rclone_command.extend(["--drive-client-secret", self.rclone_secret])
-                rclone_command.extend(["--drive-token", self.rclone_token])
+                rclone_command.extend(["--drive-client-secret", self.client_secret])
+                rclone_command.extend(["--drive-token", self.oauth_token])
 
             # Initialize using service account
             if self.service_account:

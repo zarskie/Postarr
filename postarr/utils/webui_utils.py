@@ -179,8 +179,8 @@ def create_drive_sync_payload() -> DriveSyncPayload:
     return DriveSyncPayload(
         log_level=log_level,
         client_id=getattr(rclone_conf, "client_id", ""),
-        rclone_token=getattr(rclone_conf, "rclone_token", ""),
-        rclone_secret=getattr(rclone_conf, "rclone_secret", ""),
+        oauth_token=getattr(rclone_conf, "oauth_token", ""),
+        client_secret=getattr(rclone_conf, "client_secret", ""),
         service_account=getattr(rclone_conf, "service_account", ""),
         gdrives=gdrives_list,
     )
