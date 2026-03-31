@@ -43,6 +43,7 @@ ENV MAIN_LOG_LEVEL="INFO"
 ENV VERSION="0.8.0-alpha.4"
 ENV RCLONE_CONFIG="/config/rclone/rclone.conf"
 ENV SEARCH_DEBUG=
+ENV TIME_FORMAT="12"
 
 # Use entrypoint script
 ENTRYPOINT [ "/entrypoint.sh" ]

@@ -115,7 +115,10 @@ def update_next_run_times(app):
                 if job:
                     next_run = getattr(job, "next_run_time", None)
                     if next_run:
-                        schedule.next_run = next_run.strftime("%b %d, %Y %I:%M %p")
+                        if Settings.TIME_FORMAT.value == "24":
+                            schedule.next_run = next_run.strftime("%b %d, %Y %H:%M")
+                        else:
+                            schedule.next_run = next_run.strftime("%b %d, %Y %I:%M %p")
                     else:
                         schedule.next_run = "Pending"
                 else:
