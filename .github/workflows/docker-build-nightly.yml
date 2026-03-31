@@ -44,7 +44,7 @@ jobs:
             type=sha,prefix=,format=short
             type=raw,value=nightly
           labels: |
-            org.opencontainers.image.version=${{ env.version }}.${{ github.run_number }}
+            org.opencontainers.image.version=${{ env.VERSION }}.${{ github.run_number }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
