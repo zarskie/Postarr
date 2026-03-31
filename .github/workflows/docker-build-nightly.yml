@@ -38,8 +38,8 @@ jobs:
         with:
           images: ghcr.io/zarskie/postarr
           tags: |
-            type=raw,value=nightly
             type=sha,prefix=,format=short
+            type=raw,value=nightly
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
