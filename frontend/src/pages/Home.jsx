@@ -1,10 +1,11 @@
-import { Image, ImageOff, BarChart2 } from "lucide-react";
+import { Image, ImageOff, BarChart2, FolderSearch } from "lucide-react";
 import { useState } from "react";
 import PosterViewer from "../components/dashboard/PosterViewer";
 import UnmatchedStats from "../components/dashboard/UnmatchedStats";
 import UnmatchedAssets from "../components/dashboard/UnmatchedAssets";
 import { usePoster } from "../context/PosterContext";
 import { useUnmatched } from "../context/UnmatchedContext";
+import PosterSearch from "../components/dashboard/PosterSearch";
 
 function Home() {
   const [activeSection, setActiveSection] = useState("poster-viewer");
@@ -14,6 +15,7 @@ function Home() {
     { id: "poster-viewer", label: "Poster Viewer", icon: Image },
     { id: "unmatched-stats", label: "Unmatched Stats", icon: BarChart2 },
     { id: "unmatched-assets", label: "Unmatched Assets", icon: ImageOff },
+    { id: "poster-search", label: "Poster Search", icon: FolderSearch },
   ];
   const [unmatchedFilter, setUnmatchedFilter] = useState("all");
 
@@ -158,6 +160,22 @@ function Home() {
                   Run unmatched assets to view missing posters.
                 </p>
               )}
+            </div>
+          </>
+          {/* Poster Search Sections */}
+          <>
+            <div className={activeSection === "poster-search" ? "" : "hidden"}>
+              <div className="mb-6 flex flex-col gap-3 border-b border-gray-700 pb-4 sm:flex-row sm:items-start sm:justify-between lg:px-0">
+                <div>
+                  <h2 className="mb-2 text-xl font-semibold text-white">
+                    Poster Search
+                  </h2>
+                  <p className="text-sm text-gray-400">Search posters.</p>
+                </div>
+              </div>
+              <div>
+                <PosterSearch />
+              </div>
             </div>
           </>
         </div>

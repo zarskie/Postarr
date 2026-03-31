@@ -148,10 +148,12 @@ def create_app() -> Flask:
 
     # import needed blueprints
     from postarr.views.poster_renamer.poster_renamer import poster_renamer
+    from postarr.views.poster_search.poster_search import poster_search
     from postarr.views.settings.settings import settings
 
     app.register_blueprint(settings, url_prefix="/api/settings")
     app.register_blueprint(poster_renamer, url_prefix="/api/poster-renamer")
+    app.register_blueprint(poster_search, url_prefix="/api/poster-search")
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
