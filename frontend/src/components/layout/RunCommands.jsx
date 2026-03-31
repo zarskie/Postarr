@@ -22,7 +22,7 @@ const RunCommands = () => {
   });
   const [logLevel, setLogLevel] = useState("info");
   const [version, setVersion] = useState("");
-  const [sha, setSha] = useState("");
+  const [build, setBuild] = useState("");
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -225,7 +225,7 @@ const RunCommands = () => {
       .then((res) => res.json())
       .then((data) => {
         setVersion(data.version);
-        setSha(data.commit);
+        setBuild(data.build_number);
       });
   }, []);
 
@@ -641,7 +641,7 @@ const RunCommands = () => {
             </a>
             <span className="px-4 py-1 text-xs font-medium text-gray-400">
               Postarr v{version}
-              {sha ? `.${sha}` : ""}
+              {build ? `.${build}` : ""}
             </span>
           </div>
         </div>

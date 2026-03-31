@@ -17,6 +17,7 @@ def get_version():
         {
             "version": os.environ.get("VERSION", "dev"),
             "commit": sha[:7] if sha else None,
+            "build_number": os.environ.get("GIT_RUN_NUMBER", ""),
         }
     )
 

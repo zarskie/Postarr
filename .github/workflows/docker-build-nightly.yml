@@ -71,6 +71,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/zarskie/postarr:buildcache,mode=max
           build-args: |
             GIT_SHA=${{ github.sha }}
+            GIT_RUN_NUMBER=${{ github.run_number }}
 
       - name: Show Docker image info
         run: |
