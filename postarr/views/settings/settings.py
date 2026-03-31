@@ -12,7 +12,13 @@ settings = Blueprint("settings", __name__)
 
 @settings.route("/version")
 def get_version():
-    return jsonify({"version": os.environ.get("VERSION", "dev")})
+    sha = os.environ.get("GIT_SHA", None)
+    return jsonify(
+        {
+            "version": os.environ.get("VERSION", "dev"),
+            "commit": sha[:7] if sha else None,
+        }
+    )
 
 
 @settings.route("/check-update", methods=["GET"])

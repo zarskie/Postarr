@@ -38,6 +38,8 @@ COPY entrypoint.sh /entrypoint.sh
 COPY migrate_db.py /code/migrate_db.py
 
 # Set environment variables to switch between development and production
+ARG GIT_SHA
+ENV GIT_SHA=$GIT_SHA
 ENV APP_MODE="WEB"
 ENV MAIN_LOG_LEVEL="INFO"
 ENV VERSION="0.9.0-alpha.1"
