@@ -18,13 +18,14 @@
 4. [Community](#community)
 5. [Contributing](#contributing)
    - [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
+6. [Acknowledgements](#acknowledgements)
 
 ## What Is Postarr?
 Postarr syncs poster files from any gdrive, matches them with your Plex media items, renames them to a specific naming scheme and uploads them to your Plex server.
 
 ## Key Features
 
-- Sync posters from any Google Drive or community drives with RClone
+- Sync posters from any Google Drive or community drives with RClone [Wiki](https://github.com/Drazzilb08/daps/wiki/rclone-configuration)
 - Integrates with Kometa and matches poster files to Plex items, renaming them to a specific naming scheme (Kometa)
 - Upload matched poster files to Plex automatically (Kometa not required)
 - Webhook support with the *arr apps to upload posters as soon as media is added [Wiki](https://github.com/zarskie/postarr/wiki/Webhook-Run)
@@ -90,3 +91,14 @@ For support, join the friendly Trash Guides Community [TRaSH-Guides Discord](htt
 
 ### Bug Reports and Feature Requests 
 Please create a github issue.
+
+## Acknowledgements
+Postarr was inspired by and built on top of the work done in [DAPS](https://github.com/Drazzilb08/daps) by [Drazzilb08](https://github.com/Drazzilb08). Many thanks for laying the groundwork.
+
+<br/>
+
+Thanks to all contributors who have helped make Postarr better:
+
+<a href="https://github.com/zarskie/postarr/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=zarskie/postarr" />
+</a>
