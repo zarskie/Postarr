@@ -26,8 +26,8 @@ Postarr syncs poster files from any gdrive, matches them with your Plex media it
 
 - Sync posters from any Google Drive or community drives with RClone
 - Integrates with Kometa and matches poster files to Plex items, renaming them to a specific naming scheme (Kometa)
-- Upload matched poster files to Plex automatically
-- Webhook support with the *arr apps to upload posters as soon as media is added
+- Upload matched poster files to Plex automatically (Kometa not required)
+- Webhook support with the *arr apps to upload posters as soon as media is added [Wiki](https://github.com/zarskie/postarr/wiki/Webhook-Run)
 - Display unmatched assets (no posters made yet) and unmatched stats
 - Search drive folders directly in the UI with thumbnails
 - Display all matched and uploaded poster files
