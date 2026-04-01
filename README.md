@@ -5,7 +5,7 @@
 
 <p align="center">Transform your Plex library with beautifully matched custom posters</p>
 
-<p align="center"><img alt="GitHub tags (latest by date)" src="https://img.shields.io/github/v/tag/zarskie/postarr?style=for-the-badge">&nbsp;</p>
+<p align="center"><img alt="GitHub activity" src="https://img.shields.io/github/last-commit/zarskie/postarr/develop?style=for-the-badge">&nbsp;<img alt="GitHub tags (latest by date)" src="https://img.shields.io/github/v/tag/zarskie/postarr?style=for-the-badge">&nbsp;<img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/zarskie/postarr/docker-build-nightly.yml?style=for-the-badge">&nbsp;</p>
 
 <p align="center"><img alt="postarr ui" src=".github/images/postarr-ui.png" /></p>
 
