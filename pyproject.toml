@@ -1,35 +1,46 @@
-[tool.poetry]
+[project]
 name = "postarr"
-authors = []
 version = "0.9.0-alpha.2"
 description = ""
+authors = []
+requires-python = ">=3.11,<3.12"
 readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "plexapi>=4.15.16,<5",
+    "tqdm>=4.66.5,<5",
+    "pathvalidate>=3.2.1,<4",
+    "arrapi>=1.4.13,<2",
+    "pyyaml>=6.0.2,<7",
+    "flask>=3.0.3,<4",
+    "gunicorn>=23.0.0,<24",
+    "flask-sqlalchemy>=3.1.1,<4",
+    "apscheduler>=3.10.4,<4",
+    "tabulate>=0.9.0,<0.10",
+    "pillow==10.2.0",
+    "flask-migrate>=4.0.7,<5",
+    "unidecode>=1.3.8,<2",
+    "pytz>=2025.2,<2026",
+    "setuptools>=75.0.0,<76",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.12"
-plexapi = "^4.15.16"
-tqdm = "^4.66.5"
-pathvalidate = "^3.2.1"
-arrapi = "^1.4.13"
-pyyaml = "^6.0.2"
-flask = "^3.0.3"
-gunicorn = "^23.0.0"
-flask-sqlalchemy = "^3.1.1"
-apscheduler = "^3.10.4"
-tabulate = "^0.9.0"
-pillow = "10.2.0"
-flask-migrate = "^4.0.7"
-unidecode = "^1.3.8"
-pytz = "^2025.2"
+[dependency-groups]
+dev = [
+    "black>=24.8.0,<25",
+    "djlint>=1.35.2,<2",
+    "pynvim>=0.5.0,<0.6",
+    "python-dotenv>=1.2.2,<2",
+]
 
+[tool.uv]
+default-groups = "all"
 
-[tool.poetry.group.dev.dependencies]
-black = "^24.8.0"
-djlint = "^1.35.2"
-setuptools = "^75.0.0"
-pynvim = "^0.5.0"
-python-dotenv = "^1.2.2"
+[tool.uv.build-backend]
+module-root = ""
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.2,<0.12.0"]
+build-backend = "uv_build"
