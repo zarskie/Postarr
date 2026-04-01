@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "postarr"
 authors = []
-version = "0.9.0-alpha.1"
+version = "0.9.0-alpha.2"
 description = ""
 readme = "README.md"
 
