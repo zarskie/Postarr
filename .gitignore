@@ -1,5 +1,7 @@
 *__pycache__
 .env
+.venv
+.envrc
 .vscode/
 .DS_Store
 cache.json

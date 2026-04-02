@@ -1,6 +1,8 @@
 *__pycache__
 .env
 .venv
+.envrc
+.python-version
 .vscode/
 cache.json
 config/config.yaml
