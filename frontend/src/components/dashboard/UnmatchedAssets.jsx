@@ -17,13 +17,13 @@ function UnmatchedAssets({ activeFilter: initialFilter = "all" }) {
   ];
   const search = searchValue.toLowerCase();
   const filteredMovies = unmatchedData.unmatchedMedia.movies.filter((movie) =>
-    movie.title.toLowerCase().includes(search),
+    movie.title.toLowerCase().includes(search)
   );
   const filteredCollections = unmatchedData.unmatchedMedia.collections.filter(
-    (collection) => collection.title.toLowerCase().includes(search),
+    (collection) => collection.title.toLowerCase().includes(search)
   );
   const filteredShows = unmatchedData.unmatchedMedia.shows.filter((show) =>
-    show.title.toLowerCase().includes(search),
+    show.title.toLowerCase().includes(search)
   );
   const allItems = [
     ...unmatchedData.unmatchedMedia.movies.map((item) => ({
@@ -59,7 +59,7 @@ function UnmatchedAssets({ activeFilter: initialFilter = "all" }) {
   return (
     <>
       <div className="flex flex-col">
-        <div className="flex max-h-[550px] w-full flex-col overflow-hidden rounded border border-gray-700  bg-gray-900 md:w-1/2 lg:max-h-[650px]">
+        <div className="flex max-h-[550px] w-full flex-col overflow-hidden rounded border border-gray-700 bg-gray-900 md:w-1/2 lg:max-h-[650px]">
           <nav className="mb-2 flex-shrink-0 border-b border-gray-700 bg-gray-900">
             <ul className="flex text-sm font-medium">
               {filters.map((filter) => {
@@ -95,7 +95,7 @@ function UnmatchedAssets({ activeFilter: initialFilter = "all" }) {
               onChange={(e) => {
                 setSearchValue(e.target.value);
               }}
-              className="w-full rounded border border-gray-700 bg-gray-800 px-4 py-2 text-sm  text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Search missing..."
             />
           </div>

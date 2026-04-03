@@ -506,7 +506,7 @@ const RunCommands = () => {
                             setPopupField(null);
                             if (errors.borderSetting) {
                               setBlurredFields((prev) =>
-                                new Set(prev).add("borderSetting"),
+                                new Set(prev).add("borderSetting")
                               );
                             }
                           }}
@@ -578,7 +578,7 @@ const RunCommands = () => {
                             onBlur={() => {
                               if (errors.customColor) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("customColor"),
+                                  new Set(prev).add("customColor")
                                 );
                               }
                             }}

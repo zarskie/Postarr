@@ -105,7 +105,7 @@ function UnmatchedShowRow({
               </span>
             </button>
           </div>,
-          document.body,
+          document.body
         )}
       {manualOpen && (
         <div className="border-l-[10px] border-gray-700">
@@ -114,7 +114,7 @@ function UnmatchedShowRow({
               className="group relative flex w-full items-center"
               key={season.id}
             >
-              <span className=" relative z-10 flex-1 px-4 py-2 text-sm text-gray-400">
+              <span className="relative z-10 flex-1 px-4 py-2 text-sm text-gray-400">
                 {formatSeason(season.season)}
               </span>
               <div className="pointer-events-none absolute inset-0 z-0 transition-colors group-hover:bg-gray-800" />

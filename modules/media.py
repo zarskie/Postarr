@@ -55,13 +55,21 @@ class Media:
                     series_data.get("alternateTitles", [])
                 )
                 dict_with_seasons["alternate_titles"] = alternate_titles
-            dict_with_seasons["title"] = f"{dict_with_seasons['arr_title']} ({dict_with_seasons['media_year']})"
+            dict_with_seasons["title"] = (
+                f"{dict_with_seasons['arr_title']} ({dict_with_seasons['media_year']})"
+            )
             if tmdb_id != "0":
-                dict_with_seasons["title"] = f"{dict_with_seasons['title']} {{tmdb-{tmdb_id}}}"
+                dict_with_seasons["title"] = (
+                    f"{dict_with_seasons['title']} {{tmdb-{tmdb_id}}}"
+                )
             if tvdb_id != "0":
-                dict_with_seasons["title"] = f"{dict_with_seasons['title']} {{tvdb-{tvdb_id}}}"
+                dict_with_seasons["title"] = (
+                    f"{dict_with_seasons['title']} {{tvdb-{tvdb_id}}}"
+                )
             if imdb_id != "0":
-                dict_with_seasons["title"] = f"{dict_with_seasons['title']} {{imdb-{imdb_id}}}"
+                dict_with_seasons["title"] = (
+                    f"{dict_with_seasons['title']} {{imdb-{imdb_id}}}"
+                )
 
             for season in season_object:  # type: ignore
                 season_dict = {
@@ -127,11 +135,17 @@ class Media:
             dict_with_years["tmdb_id"] = tmdb_id
             dict_with_years["path"] = media_object.path
             dict_with_years["folder"] = path.name
-            dict_with_years["title"] = f"{dict_with_years['arr_title']} ({dict_with_years['media_year']})"
+            dict_with_years["title"] = (
+                f"{dict_with_years['arr_title']} ({dict_with_years['media_year']})"
+            )
             if tmdb_id != "0":
-                dict_with_years["title"] = f"{dict_with_years['title']} {{tmdb-{tmdb_id}}}"
+                dict_with_years["title"] = (
+                    f"{dict_with_years['title']} {{tmdb-{tmdb_id}}}"
+                )
             if imdb_id != "0":
-                dict_with_years["title"] = f"{dict_with_years['title']} {{imdb-{imdb_id}}}"
+                dict_with_years["title"] = (
+                    f"{dict_with_years['title']} {{imdb-{imdb_id}}}"
+                )
 
             titles_with_years.append(dict_with_years)
         return titles_with_years
@@ -175,9 +189,7 @@ class Radarr(Media):
     def get_movies_info(self):
         if not self.movies:
             self.movies = self.get_movies_with_years(
-                self.all_movie_objects,
-                self.instance_name,
-                self.logger
+                self.all_movie_objects, self.instance_name, self.logger
             )
         return self.movies
 
@@ -215,9 +227,7 @@ class Sonarr(Media):
     def get_series_info(self):
         if not self.series:
             self.series = self.get_series_with_seasons(
-                self.logger,
-                self.all_series_objects,
-                self.instance_name
+                self.logger, self.all_series_objects, self.instance_name
             )
         return self.series
 

@@ -558,9 +558,9 @@ class PosterRenamerr:
             "sanitized_name_without_extension"
         ].removesuffix(" collection")
         object_to_populate["extra_sanitized_name_without_collection"] = (
-            object_to_populate["extra_sanitized_name_without_extension"].removesuffix(
-                " collection"
-            )
+            object_to_populate[
+                "extra_sanitized_name_without_extension"
+            ].removesuffix(" collection")
         )
         # strip all spaces out
         object_to_populate["sanitized_no_spaces"] = re.sub(

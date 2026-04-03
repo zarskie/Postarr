@@ -316,7 +316,6 @@ class UnmatchedAssets:
         media_dict: dict[str, list[dict]],
         collections_dict: dict[str, list[str]],
     ):
-
         shows_list = media_dict.get("shows", [])
         movies_list = media_dict.get("movies", [])
         total_collections = sum(

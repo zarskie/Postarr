@@ -144,10 +144,13 @@ def create_app() -> Flask:
             version = os.getenv("VERSION", "0.0.1")
             postarr_logger.info(f"Starting Postarr v{version}")
             postarr_logger.info("Initializing database schema...")
-            db.create_all()
             with db.engine.connect() as conn:
                 conn.execute(db.text("PRAGMA journal_mode=WAL;"))
             postarr_logger.info("WAL mode enabled for SQLite database")
+            load_schedules_from_db(app)
+            if not scheduler.running:
+                scheduler.start()
+            update_next_run_times(app)
 
     # import needed blueprints
     from postarr.views.poster_renamer.poster_renamer import poster_renamer

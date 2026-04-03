@@ -62,7 +62,7 @@ export function UnmatchedProvider({ children }) {
                 .filter(
                   (show) =>
                     !show.is_missing &&
-                    (show.main_poster_missing || show.seasons.length > 0),
+                    (show.main_poster_missing || show.seasons.length > 0)
                 ),
             };
         setUnmatchedData({
