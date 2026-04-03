@@ -124,7 +124,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
     }
     try {
       const response = await fetch(
-        `/api/settings/get-source-folders?posterRoot=${encodeURIComponent(posterRoot)}`,
+        `/api/settings/get-source-folders?posterRoot=${encodeURIComponent(posterRoot)}`
       );
       const result = await response.json();
       if (result.success && result.folders.length > 0) {
@@ -162,7 +162,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
         setLibraries((prev) => {
           const existing = prev.filter((l) => l.trim() !== "");
           const newLibraries = result.libraries.filter(
-            (l) => !existing.includes(l),
+            (l) => !existing.includes(l)
           );
           return existing.length > 0 || newLibraries.length > 0
             ? [...existing, ...newLibraries]
@@ -394,10 +394,10 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
     const validSourceFolders = sourceFolders.filter((f) => f.trim() !== "");
     const validLibraries = libraries.filter((f) => f.trim() !== "");
     const validInitialSourceFolders = initialState.sourceFolders.filter(
-      (f) => f.trim() !== "",
+      (f) => f.trim() !== ""
     );
     const validInitialLibraries = initialState.libraries.filter(
-      (f) => f.trim() !== "",
+      (f) => f.trim() !== ""
     );
 
     const borderChanged = settings.replaceBorder
@@ -526,7 +526,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                   setPopupField(null);
                   if (errors.assetDirectory) {
                     setBlurredFields((prev) =>
-                      new Set(prev).add("assetDirectory"),
+                      new Set(prev).add("assetDirectory")
                     );
                   }
                 }}
@@ -623,11 +623,10 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                         errors.sourceFolders
                       ) {
                         const updatedSourceFolders = sourceFolders.map(
-                          (folder, i) =>
-                            i === index ? e.target.value : folder,
+                          (folder, i) => (i === index ? e.target.value : folder)
                         );
                         const hasAtLeastOne = updatedSourceFolders.some(
-                          (folder) => folder.trim(),
+                          (folder) => folder.trim()
                         );
                         if (hasAtLeastOne) {
                           setErrors((prev) => ({
@@ -646,7 +645,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                       setPopupField(null);
                       if (errors.sourceFolders) {
                         setBlurredFields((prev) =>
-                          new Set(prev).add("sourceFolders"),
+                          new Set(prev).add("sourceFolders")
                         );
                       }
                     }}
@@ -806,10 +805,10 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                       updateLibrary(index, e.target.value);
                       if (blurredFields.has("libraries") || errors.libraries) {
                         const updatedLibraries = libraries.map((lib, i) =>
-                          i === index ? e.target.value : lib,
+                          i === index ? e.target.value : lib
                         );
                         const hasAtLeastOne = updatedLibraries.some((lib) =>
-                          lib.trim(),
+                          lib.trim()
                         );
                         if (hasAtLeastOne) {
                           setErrors((prev) => ({
@@ -825,7 +824,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                       setPopupField(null);
                       if (errors.libraries) {
                         setBlurredFields((prev) =>
-                          new Set(prev).add("libraries"),
+                          new Set(prev).add("libraries")
                         );
                       }
                     }}
@@ -909,7 +908,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                         e.stopPropagation();
                         e.preventDefault();
                         setActiveTooltip(
-                          activeTooltip === "webhookRun" ? null : "webhookRun",
+                          activeTooltip === "webhookRun" ? null : "webhookRun"
                         );
                       }}
                     />
@@ -1100,7 +1099,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                     setPopupField(null);
                     if (errors.borderType) {
                       setBlurredFields((prev) =>
-                        new Set(prev).add("borderType"),
+                        new Set(prev).add("borderType")
                       );
                     }
                   }}
@@ -1159,7 +1158,7 @@ const PosterRenamerrSettings = ({ onDirtyChange }) => {
                     onBlur={() => {
                       if (errors.customHex) {
                         setBlurredFields((prev) =>
-                          new Set(prev).add("customHex"),
+                          new Set(prev).add("customHex")
                         );
                       }
                     }}

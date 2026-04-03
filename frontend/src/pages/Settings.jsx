@@ -274,7 +274,7 @@ function Settings() {
       const result = await response.json();
       if (result.success) {
         const sorted = [...result.instances].sort((a, b) =>
-          a.type.localeCompare(b.type),
+          a.type.localeCompare(b.type)
         );
         setInstances(sorted);
       }
@@ -401,7 +401,7 @@ function Settings() {
         `/api/settings/delete-schedule/${selectedScheduleModule}`,
         {
           method: "POST",
-        },
+        }
       );
       const data = await response.json();
       if (data.success) {
@@ -587,7 +587,7 @@ function Settings() {
       <div className="pointer-events-none fixed right-4 top-4 z-[65] flex flex-col gap-2">
         {connectionStatus && (
           <div
-            className={`animate-in fade-in slide-in-from-right-10 flex transform items-center gap-3 rounded-lg border px-4 py-3 shadow-2xl transition-all duration-500 ease-in-out ${connectionStatus.success ? "border-green-500 bg-gray-800 text-green-400" : "border-red-500 bg-gray-800 text-red-400"}`}
+            className={`flex transform items-center gap-3 rounded-lg border px-4 py-3 shadow-2xl transition-all duration-500 ease-in-out animate-in fade-in slide-in-from-right-10 ${connectionStatus.success ? "border-green-500 bg-gray-800 text-green-400" : "border-red-500 bg-gray-800 text-red-400"}`}
           >
             <div
               className={`rounded-full p-1 ${connectionStatus.success ? "bg-green-500/20" : "bg-red-500/20"}`}
@@ -925,7 +925,7 @@ function Settings() {
                               setPopupField(null);
                               if (errors.scheduleValue) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("scheduleValue"),
+                                  new Set(prev).add("scheduleValue")
                                 );
                               }
                             }}
@@ -1194,7 +1194,7 @@ function Settings() {
                           setPopupField(null);
                           if (errors.instanceName) {
                             setBlurredFields((prev) =>
-                              new Set(prev).add("instanceName"),
+                              new Set(prev).add("instanceName")
                             );
                           }
                         }}
@@ -1259,7 +1259,7 @@ function Settings() {
                           setPopupField(null);
                           if (errors.url) {
                             setBlurredFields((prev) =>
-                              new Set(prev).add("url"),
+                              new Set(prev).add("url")
                             );
                           }
                         }}
@@ -1315,9 +1315,7 @@ function Settings() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveTooltip(
-                              activeTooltip === "plexToken"
-                                ? null
-                                : "plexToken",
+                              activeTooltip === "plexToken" ? null : "plexToken"
                             );
                           }}
                         />
@@ -1357,7 +1355,7 @@ function Settings() {
                           setPopupField(null);
                           if (errors.apiKey) {
                             setBlurredFields((prev) =>
-                              new Set(prev).add("apiKey"),
+                              new Set(prev).add("apiKey")
                             );
                           }
                         }}

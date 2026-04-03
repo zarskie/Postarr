@@ -46,7 +46,7 @@ function ListRow({
             setOpenPopover(
               openPopover === `${item.type}-${item.file_hash}-${item.instance}`
                 ? null
-                : `${item.type}-${item.file_hash}-${item.instance}`,
+                : `${item.type}-${item.file_hash}-${item.instance}`
             );
           }}
         >
@@ -91,13 +91,13 @@ function ListRow({
                     });
                 }}
               >
-                <span className="flex items-center  gap-2 text-sm">
+                <span className="flex items-center gap-2 text-sm">
                   <Trash2 size={16} className="text-red-500" />
                   Delete Poster
                 </span>
               </button>
             </div>,
-            document.body,
+            document.body
           )}
       </div>
       <div

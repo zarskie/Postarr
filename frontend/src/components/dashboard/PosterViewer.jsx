@@ -20,13 +20,13 @@ function PosterViewer() {
   ];
   const search = searchValue.toLowerCase();
   const filteredMovies = filePaths.movies.filter((movie) =>
-    movie.file_name.toLowerCase().includes(search),
+    movie.file_name.toLowerCase().includes(search)
   );
   const filteredCollections = filePaths.collections.filter((collection) =>
-    collection.file_name.toLowerCase().includes(search),
+    collection.file_name.toLowerCase().includes(search)
   );
   const filteredShows = Object.values(filePaths.shows).filter((show) =>
-    show.file_name.toLowerCase().includes(search),
+    show.file_name.toLowerCase().includes(search)
   );
   const allItems = [
     ...filePaths.movies.map((item) => ({ ...item, type: "movie" })),
@@ -60,7 +60,7 @@ function PosterViewer() {
     <>
       <div className="flex flex-col">
         <div className="flex flex-col overflow-hidden rounded border border-gray-700 bg-gray-900 lg:flex-row">
-          <div className="flex max-h-[550px] w-full flex-col border-b border-gray-700  bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
+          <div className="flex max-h-[550px] w-full flex-col border-b border-gray-700 bg-gray-900 lg:max-h-[650px] lg:w-1/2 lg:border-b-0 lg:border-r">
             <nav className="mb-2 flex-shrink-0 border-b border-gray-700 bg-gray-900">
               <ul className="flex text-sm font-medium">
                 {filters.map((filter) => {
@@ -90,7 +90,7 @@ function PosterViewer() {
                 onChange={(e) => {
                   setSearchValue(e.target.value);
                 }}
-                className="w-full rounded border border-gray-700 bg-gray-800 px-4 py-2 text-sm  text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Search assets..."
               />
             </div>

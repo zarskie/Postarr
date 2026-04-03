@@ -1,8 +1,8 @@
 function Logs() {
   return (
     <div>
-      <h1 className="text-white font-bold text-2xl mb-6 px-4 md:px-0">Logs</h1>
-      <div className="bg-gray-800 rounded-lg p-6 mx-2 md:mx-0"></div>
+      <h1 className="mb-6 px-4 text-2xl font-bold text-white md:px-0">Logs</h1>
+      <div className="mx-2 rounded-lg bg-gray-800 p-6 md:mx-0"></div>
     </div>
   );
 }

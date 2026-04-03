@@ -50,7 +50,7 @@ function PosterSearch() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/poster-search/search?q=${encodeURIComponent(debouncedQuery)}&filter=${getFilterMode}`,
+          `/api/poster-search/search?q=${encodeURIComponent(debouncedQuery)}&filter=${getFilterMode}`
         );
         const data = await res.json();
         setResults(data.results);
@@ -105,7 +105,7 @@ function PosterSearch() {
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveTooltip(
-                    activeTooltip === "allFolders" ? null : "allFolders",
+                    activeTooltip === "allFolders" ? null : "allFolders"
                   );
                 }}
               />
@@ -147,9 +147,7 @@ function PosterSearch() {
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveTooltip(
-                    activeTooltip === "enabledFolders"
-                      ? null
-                      : "enabledFolders",
+                    activeTooltip === "enabledFolders" ? null : "enabledFolders"
                   );
                 }}
               />
@@ -190,7 +188,7 @@ function PosterSearch() {
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveTooltip(
-                    activeTooltip === "priority" ? null : "priority",
+                    activeTooltip === "priority" ? null : "priority"
                   );
                 }}
               />
@@ -269,7 +267,7 @@ function PosterSearch() {
               left: mousePos.x + 16,
             }}
           />,
-          document.body,
+          document.body
         )}
     </div>
   );

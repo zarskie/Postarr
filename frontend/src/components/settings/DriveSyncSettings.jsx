@@ -53,7 +53,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
   const [activeTooltip, setActiveTooltip] = useState(null);
 
   const availablePresets = drivePresets.filter(
-    (preset) => !gdrives.some((g) => g.drive_id === preset.drive_id),
+    (preset) => !gdrives.some((g) => g.drive_id === preset.drive_id)
   );
   const DRIVES_PREVIEW = 5;
   const tokenPlaceholder = `{
@@ -184,7 +184,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
-        },
+        }
       );
       const result = await response.json();
       if (response.ok) {
@@ -520,7 +520,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                 setPopupField(null);
                 if (errors.rootDirectory) {
                   setBlurredFields((prev) =>
-                    new Set(prev).add("rootDirectory"),
+                    new Set(prev).add("rootDirectory")
                   );
                 }
               }}
@@ -608,7 +608,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                       </button>
                     </div>
                   </div>
-                ),
+                )
               )}
               {gdrives.length > DRIVES_PREVIEW && (
                 <button
@@ -690,7 +690,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                           onChange={(e) => {
                             setDrivePreset(e.target.value);
                             const selected = drivePresets.find(
-                              (p) => p.name === e.target.value,
+                              (p) => p.name === e.target.value
                             );
                             if (selected) {
                               setDriveType(selected.type);
@@ -821,7 +821,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                               setPopupField(null);
                               if (errors.driveName) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("driveName"),
+                                  new Set(prev).add("driveName")
                                 );
                               }
                             }}
@@ -884,7 +884,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                               setPopupField(null);
                               if (errors.driveId) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("driveId"),
+                                  new Set(prev).add("driveId")
                                 );
                               }
                             }}
@@ -985,7 +985,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                           setActiveTooltip(
                             activeTooltip === "rcloneConfig"
                               ? null
-                              : "rcloneConfig",
+                              : "rcloneConfig"
                           );
                         }}
                       />
@@ -1032,7 +1032,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                           setOauthToken("");
                           setShowToken(true);
                           setServiceAccount(
-                            authInitialState?.serviceAccount || "",
+                            authInitialState?.serviceAccount || ""
                           );
                         } else {
                           setClientId("");
@@ -1093,7 +1093,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                               setPopupField(null);
                               if (errors.clientId) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("clientId"),
+                                  new Set(prev).add("clientId")
                                 );
                               }
                             }}
@@ -1151,7 +1151,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                               setPopupField(null);
                               if (errors.clientSecret) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("clientSecret"),
+                                  new Set(prev).add("clientSecret")
                                 );
                               }
                             }}
@@ -1224,7 +1224,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                               setPopupField(null);
                               if (errors.oAuthToken) {
                                 setBlurredFields((prev) =>
-                                  new Set(prev).add("oAuthToken"),
+                                  new Set(prev).add("oAuthToken")
                                 );
                               }
                             }}
@@ -1297,7 +1297,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
                             setPopupField(null);
                             if (errors.serviceAccount) {
                               setBlurredFields((prev) =>
-                                new Set(prev).add("serviceAccount"),
+                                new Set(prev).add("serviceAccount")
                               );
                             }
                           }}

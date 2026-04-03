@@ -16,7 +16,7 @@ function ShowRow({
     selectedItem?.arr_id === show.arr_id &&
     selectedItem?.instance === show.instance;
   const containsSelected = show.seasons.some(
-    (season) => season.file_hash === selectedItem?.file_hash,
+    (season) => season.file_hash === selectedItem?.file_hash
   );
   const [manualOpen, setManualOpen] = useState(null);
   const open = manualOpen !== null ? manualOpen : containsSelected;
@@ -134,7 +134,7 @@ function ShowRow({
               </span>
             </button>
           </div>,
-          document.body,
+          document.body
         )}
       {open && (
         <div className="border-l-[10px] border-gray-700">
@@ -215,13 +215,13 @@ function ShowRow({
                             });
                         }}
                       >
-                        <span className="flex items-center  gap-2 text-sm text-white">
+                        <span className="flex items-center gap-2 text-sm text-white">
                           <Trash2 size={16} className="text-red-500" />
                           Delete Poster
                         </span>
                       </button>
                     </div>,
-                    document.body,
+                    document.body
                   )}
                 <div
                   className={`pointer-events-none absolute inset-0 z-0 transition-colors ${seasonSelected ? "bg-gray-800" : "group-hover:bg-gray-800"}`}

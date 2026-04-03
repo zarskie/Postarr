@@ -28,7 +28,7 @@ function UnmatchedRow({
               setOpenPopover(
                 openPopover === `${type}-${item.id}`
                   ? null
-                  : `${type}-${item.id}`,
+                  : `${type}-${item.id}`
               );
             }}
           >
@@ -51,13 +51,13 @@ function UnmatchedRow({
                     setOpenPopover(null);
                   }}
                 >
-                  <span className="flex items-center  gap-2 text-sm">
+                  <span className="flex items-center gap-2 text-sm">
                     <Link size={16} />
                     Tmdb
                   </span>
                 </button>
               </div>,
-              document.body,
+              document.body
             )}
         </div>
       )}
