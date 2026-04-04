@@ -19,11 +19,15 @@ function Home() {
   ];
   const [unmatchedFilter, setUnmatchedFilter] = useState("all");
 
-  const isComplete = unmatchedData.showAllUnmatched
-    ? unmatchedData.unmatchedCounts.unmatched_grand_total_all === 0 &&
-      unmatchedData.unmatchedCounts.grand_total_all > 0
-    : unmatchedData.unmatchedCounts.unmatched_grand_total_with_file === 0 &&
-      unmatchedData.unmatchedCounts.grand_total_with_file > 0;
+  const hasCountData =
+    unmatchedData.unmatchedCounts.grand_total_all > 0 ||
+    unmatchedData.unmatchedCounts.grand_total_with_file > 0;
+
+  const isComplete =
+    hasCountData &&
+    (unmatchedData.showAllUnmatched
+      ? unmatchedData.unmatchedCounts.unmatched_grand_total_all === 0
+      : unmatchedData.unmatchedCounts.unmatched_grand_total_with_file === 0);
 
   const assetsHasData =
     filePaths.movies.length > 0 ||
@@ -114,7 +118,7 @@ function Home() {
                   <p className="text-sm text-gray-400">View unmatched stats.</p>
                 </div>
               </div>
-              {unmatchedHasData || isComplete ? (
+              {unmatchedHasData || hasCountData ? (
                 <div>
                   <UnmatchedStats
                     onMissingClick={(type) => {
@@ -145,7 +149,7 @@ function Home() {
                   </p>
                 </div>
               </div>
-              {unmatchedHasData || isComplete ? (
+              {unmatchedHasData || hasCountData ? (
                 <div>
                   {isComplete ? (
                     <p className="mb-4 text-sm text-gray-400">
