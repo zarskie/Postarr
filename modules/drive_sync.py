@@ -2,15 +2,27 @@ import json
 import logging
 import os
 import subprocess
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from modules import Settings
 from modules.logger import init_logger
+from modules.settings import Settings
 from progress import ProgressState
 
 
 class DriveSync:
+    RCLONE_IMPORTANT = (
+        "Transferred:",
+        "Transferring:",
+        " * ",
+        "Errors:",
+        "Checks:",
+        "Elapsed time:",
+        "ERROR",
+        "NOTICE",
+    )
+
     def __init__(self, payload):
         self.logger = logging.getLogger("DriveSync")
         try:
@@ -71,6 +83,22 @@ class DriveSync:
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Failed to create remote '{remote_name}': {e.stderr}")
 
+    def tail_log(self, log_path, drive_name, stop_event):
+        while not stop_event.is_set() and not os.path.exists(log_path):
+            stop_event.wait(0.5)
+        if not os.path.exists(log_path):
+            return
+        with open(log_path, "r") as f:
+            f.seek(0, 2)
+            while not stop_event.is_set():
+                line = f.readline()
+                if line:
+                    line = line.strip()
+                    if any(key in line for key in self.RCLONE_IMPORTANT):
+                        self.logger.info(f"[{drive_name}] {line}")
+                else:
+                    stop_event.wait(0.5)
+
     def sync_all_drives(
         self,
         cb: Callable[[str, int, ProgressState], None] | None = None,
@@ -92,24 +120,20 @@ class DriveSync:
 
         progress_step = 90 // total_drives if total_drives > 0 else 90
 
-        # rotate the prior log file and also delete older log files
-        # could consider setting up something more official w/ logrotate perhaps?
-        # but this should suffice.
-        rclone_log_dir = "/config/"
-        rclone_log_file = "rclone.log"
-        rclone_rotated_log_suffix = "1"
-        rclone_full_log_path = rclone_log_dir + rclone_log_file
-        rclone_rotated_log_path = rclone_full_log_path + rclone_rotated_log_suffix
-        if os.path.isfile(rclone_full_log_path):
+        rclone_log_dir = Path(Settings.LOG_DIR.value) / "rclone"
+        rclone_log_dir.mkdir(parents=True, exist_ok=True)
+        rclone_log_path = rclone_log_dir / "rclone.log"
+        rclone_rotated_log_path = rclone_log_dir / "rclone.log.1"
+        if os.path.isfile(rclone_log_path):
             try:
                 if os.path.isfile(rclone_rotated_log_path):
                     os.remove(rclone_rotated_log_path)
-                os.rename(rclone_full_log_path, rclone_rotated_log_path)
+                os.rename(rclone_log_path, rclone_rotated_log_path)
             except Exception as e:
                 self.logger.error(f"Problem rotating rclone log file: {e}")
-                self.logger.error(f"rclone log file full path: {rclone_full_log_path}")
+                self.logger.error(f"Rclone log file full path: {rclone_log_path}")
                 self.logger.error(
-                    f"rclone log file rotated path: {rclone_full_log_path + rclone_rotated_log_suffix}"
+                    f"Rclone log file rotated path: {rclone_rotated_log_path}"
                 )
 
         for drive in self.gdrives:
@@ -152,21 +176,29 @@ class DriveSync:
                 "--drive-use-trash=false",
                 "--drive-chunk-size=512M",
                 "--exclude=**.partial",
-                # "--check-first",
                 "--bwlimit=80M",
                 "--size-only",
                 "--delete-during",
-                "-v",
+                f"--log-file={rclone_log_path}",
             ]
 
             if self.logger.isEnabledFor(logging.DEBUG):
-                rclone_command.append(f"--log-file={rclone_full_log_path}")
+                rclone_command.append("-vvv")
+            else:
+                rclone_command.append("-v")
 
             # Initialize using OAuth
             if self.client_id and self.client_secret and self.oauth_token:
-                rclone_command.extend(["--drive-client-id", self.client_id])
-                rclone_command.extend(["--drive-client-secret", self.client_secret])
-                rclone_command.extend(["--drive-token", self.oauth_token])
+                rclone_command.extend(
+                    [
+                        "--drive-client-id",
+                        self.client_id,
+                        "--drive-client-secret",
+                        self.client_secret,
+                        "--drive-token",
+                        self.oauth_token,
+                    ]
+                )
 
             # Initialize using service account
             if self.service_account:
@@ -177,6 +209,13 @@ class DriveSync:
             self.logger.debug("Rclone command:")
             self.logger.debug(json.dumps(rclone_command, indent=4))
 
+            stop_event = threading.Event()
+            tail_thread = threading.Thread(
+                target=self.tail_log,
+                args=(rclone_log_path, drive_name, stop_event),
+                daemon=True,
+            )
+            tail_thread.start()
             try:
                 process = subprocess.Popen(
                     rclone_command,
@@ -185,18 +224,12 @@ class DriveSync:
                     bufsize=1,
                     universal_newlines=True,
                 )
-                if process.stdout is not None:
-                    for line in iter(process.stdout.readline, ""):
-                        self.logger.info(f"[{drive_name}] {line.strip()}")
-
-                if process.stderr is not None:
-                    for line in iter(process.stderr.readline, ""):
-                        self.logger.info(f"[{drive_name}] {line.strip()}")
 
                 process.wait()
 
                 if process.returncode == 0:
                     self.logger.info(f"Sync completed for drive: {drive_name}")
+                    self.logger.info(f"Full rclone log available at: {rclone_log_path}")
                     current_progress += progress_step
                     if cb and job_id:
                         cb(
@@ -207,6 +240,9 @@ class DriveSync:
                 else:
                     self.logger.error(
                         f"Sync failed for Drive ID: '{drive_id}' with errors"
+                    )
+                    self.logger.error(
+                        f"Full rclone log available at: {rclone_log_path}"
                     )
                     current_progress += progress_step
                     if cb and job_id:
@@ -225,6 +261,9 @@ class DriveSync:
                         min(current_progress, 99),
                         ProgressState.IN_PROGRESS,
                     )
+            finally:
+                stop_event.set()
+                tail_thread.join()
 
         self.logger.info("Finished sync of all drives.")
         if cb and job_id:
