@@ -81,6 +81,8 @@ The following environment variables can be used:
 |----------------------------------------|----------------------------------------------------------|------------------------------------------|
 | `MAIN_LOG_LEVEL`                       | Web UI Log Level                                         | `INFO`                                   |
 | `TIME_FORMAT`                          | Time format (12/24)                                      | `12`                                     |
+| `PUID`                                 | User to run as                                           | `1000`                                   |
+| `PGID`                                 | Group to run as                                          | `1000`                                   |
 
 ## Community
 For support, join the friendly Trash Guides Community [TRaSH-Guides Discord](https://trash-guides.info/discord) and look for **Postarr** under community apps.
