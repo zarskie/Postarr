@@ -1125,30 +1125,43 @@ class Database:
                 conn.commit()
 
     def initialize_stats(self) -> None:
-        with self.get_db_connection() as conn:
-            with closing(conn.cursor()) as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO unmatched_stats (id, total_collections, total_movies_all, total_series_all, total_seasons_all, total_movies_with_file, total_series_with_episodes, total_seasons_with_episodes)
-                    VALUES (1, 0, 0, 0, 0, 0, 0, 0)
-                    ON CONFLICT(id) DO NOTHING
-                    """
-                )
+        try:
+            with self.get_db_connection() as conn:
+                with closing(conn.cursor()) as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO unmatched_stats (id, total_collections, total_movies_all, total_series_all, total_seasons_all, total_movies_with_file, total_series_with_episodes, total_seasons_with_episodes)
+                        VALUES (1, 0, 0, 0, 0, 0, 0, 0)
+                        ON CONFLICT(id) DO NOTHING
+                        """
+                    )
+                    self.logger.debug(
+                        f"initialize_stats: row exists or was created, rows affected: {cursor.rowcount}"
+                    )
+        except Exception as e:
+            self.logger.error(f"Initialize_stats failed: {e}", exc_info=True)
 
     def update_stats(self, stats: dict[str, int]) -> None:
-        with self.get_db_connection() as conn:
-            with closing(conn.cursor()) as cursor:
-                columns = ", ".join(f"{key} = ?" for key in stats.keys())
-                values = tuple(stats.values())
-                full_values = values + values
+        try:
+            with self.get_db_connection() as conn:
+                with closing(conn.cursor()) as cursor:
+                    columns = ", ".join(f"{key} = ?" for key in stats.keys())
+                    values = tuple(stats.values())
+                    full_values = values + values
+                    self.logger.debug(f"update_stats writing: {stats}")
 
-                cursor.execute(
-                    f"""
-                    INSERT INTO unmatched_stats (id, {", ".join(stats.keys())})
-                    VALUES (1, {", ".join("?" for _ in stats.keys())})
-                    ON CONFLICT(id)
-                    DO UPDATE SET {columns}
-                    """,
-                    full_values,
-                )
-                conn.commit()
+                    cursor.execute(
+                        f"""
+                        INSERT INTO unmatched_stats (id, {", ".join(stats.keys())})
+                        VALUES (1, {", ".join("?" for _ in stats.keys())})
+                        ON CONFLICT(id)
+                        DO UPDATE SET {columns}
+                        """,
+                        full_values,
+                    )
+                    conn.commit()
+                    self.logger.debug(
+                        f"update_stats committed successfully, rows affected {cursor.rowcount}"
+                    )
+        except Exception as e:
+            self.logger.error(f"update_stats failed: {e}", exc_info=True)

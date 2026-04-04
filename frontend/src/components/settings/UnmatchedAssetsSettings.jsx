@@ -12,10 +12,16 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
   const [initialState, setInitialState] = useState(null);
   const { refreshUnmatchedData, unmatchedData } = useUnmatched();
 
+  const hasCountData =
+    unmatchedData.unmatchedCounts.grand_total_all > 0 ||
+    unmatchedData.unmatchedCounts.grand_total_with_file > 0;
+
   const unmatchedHasData =
     unmatchedData.unmatchedMedia.movies.length > 0 ||
     unmatchedData.unmatchedMedia.collections.length > 0 ||
     unmatchedData.unmatchedMedia.shows.length > 0;
+
+  const canReset = hasCountData || unmatchedHasData;
 
   const handleSave = async () => {
     setIsLoading(true);
@@ -185,12 +191,12 @@ const UnmatchedAssetsSettings = ({ onDirtyChange }) => {
           </button>
           <button
             onClick={handleReset}
-            disabled={isLoading || !unmatchedHasData}
+            disabled={isLoading || !canReset}
             className="flex w-full items-center justify-center self-start rounded-md bg-red-700 px-4 py-2 text-sm text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {isLoading
               ? "Resetting..."
-              : !unmatchedHasData
+              : !canReset
                 ? "Nothing to reset"
                 : "Reset data"}
           </button>
