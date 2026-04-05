@@ -6,6 +6,7 @@ import { CircleQuestionMark } from "lucide-react";
 function PosterSearch() {
   const tooltipTimeout = useRef(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
+  const [status, setStatus] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
@@ -30,6 +31,13 @@ function PosterSearch() {
 
   const cancelHide = () => {
     clearTimeout(tooltipTimeout.current);
+  };
+
+  const handleResetCache = async () => {
+    setStatus("loading");
+    await fetch("/api/poster-search/reset-cache", { method: "PUT" });
+    setStatus("done");
+    setTimeout(() => setStatus(null), 2000);
   };
 
   useEffect(() => {
@@ -205,6 +213,17 @@ function PosterSearch() {
               )}
             </div>
           </div>
+          <button
+            disabled={status === "loading"}
+            className={`ml-auto w-24 rounded-full border px-2 py-0.5 text-xs text-white transition-colors duration-300 disabled:opacity-50 ${status === "done" ? "border-green-700 bg-green-600" : "border-blue-700 bg-blue-600 hover:bg-blue-700"}`}
+            onClick={handleResetCache}
+          >
+            {status === "loading"
+              ? "resetting..."
+              : status === "done"
+                ? "✓ done"
+                : "reset cache"}
+          </button>
         </div>
       </div>
       {loading && <p className="mt-1 text-xs text-gray-500">Searching...</p>}
