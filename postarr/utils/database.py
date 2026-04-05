@@ -45,8 +45,6 @@ class Database:
         season_number: int | None = None,
     ) -> bool:
         try:
-            added = False
-            season_added = False
             if type == "movie":
                 existing = models.UnmatchedMovies.query.filter_by(title=title).first()
                 if existing is None:
@@ -58,7 +56,6 @@ class Database:
                         tmdb_id=tmdb_id,
                     )
                     self.db.session.add(item)
-                    added = True
                 else:
                     existing.arr_id = arr_id
                     existing.instance = instance
@@ -79,11 +76,9 @@ class Database:
                     self.db.session.add(show)
                     self.db.session.flush()
                     existing = show
-                    added = main_poster_missing
                 else:
                     if main_poster_missing and not existing.main_poster_missing:
                         existing.main_poster_missing = 1
-                        added = True
                 if season_number is not None:
                     season_str = f"season{int(season_number):02d}"
                     existing_season = models.UnmatchedSeasons.query.filter_by(
@@ -94,11 +89,6 @@ class Database:
                             show_id=existing.id, season=season_str
                         )
                         self.db.session.add(season)
-                        season_added = True
-                    else:
-                        season_added = False
-                else:
-                    season_added = False
 
             elif type == "collection":
                 existing = models.UnmatchedCollections.query.filter_by(
@@ -107,29 +97,9 @@ class Database:
                 if existing is None:
                     item = models.UnmatchedCollections(title=title)
                     self.db.session.add(item)
-                    added = True
             else:
                 self.logger.error(f"Unknown type: {type}")
                 return False
-
-            if added:
-                stats = models.UnmatchedStats.query.get(1)
-                if stats is None:
-                    return False
-                if type == "movie":
-                    stats.unmatched_movies += 1
-                elif type == "show":
-                    stats.unmatched_series += 1
-                elif type == "collection":
-                    stats.unmatched_collections += 1
-            else:
-                stats = None
-
-            if season_added:
-                if stats is None:
-                    stats = models.UnmatchedStats.query.get(1)
-                if stats:
-                    stats.unmatched_seasons += 1
 
             self.db.session.commit()
             return True
