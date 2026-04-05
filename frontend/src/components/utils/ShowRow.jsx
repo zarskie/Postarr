@@ -139,10 +139,10 @@ function ShowRow({
       {open && (
         <div className="border-l-[10px] border-gray-700">
           {show.seasons.map((season) => {
-            const seasonSelected = selectedItem?.file_hash === season.file_hash;
+            const seasonSelected = selectedItem?.file_path === season.file_path;
             return (
               <div
-                key={season.file_hash}
+                key={season.file_path}
                 className="group relative flex w-full items-center"
               >
                 <button
@@ -166,13 +166,13 @@ function ShowRow({
                 <div className="flex flex-shrink-0 items-center">
                   <button
                     className="relative z-10 w-8 flex-shrink-0 p-2 text-sm text-gray-500 hover:text-white"
-                    onClick={(e) => handleEllipsis(e, season.file_hash)}
+                    onClick={(e) => handleEllipsis(e, season.file_path)}
                   >
                     <Ellipsis size={18} className="cursor-default" />
                   </button>
                   <div className="w-8" />
                 </div>
-                {openPopover === season.file_hash &&
+                {openPopover === season.file_path &&
                   createPortal(
                     <div
                       style={{

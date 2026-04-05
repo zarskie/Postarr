@@ -40,8 +40,8 @@ function PosterViewer() {
     .filter((item) => item.file_name.toLowerCase().includes(search))
     .sort((a, b) => a.file_name.localeCompare(b.file_name));
 
-  const handleDelete = () => {
-    refreshFilePaths();
+  const handleDelete = async () => {
+    await refreshFilePaths();
     refreshUnmatchedData();
     bustPreview();
   };
@@ -116,7 +116,7 @@ function PosterViewer() {
                       );
                     return (
                       <ListRow
-                        key={`${item.type}-${item.file_hash}-${item.instance}`}
+                        key={`${item.type}-${item.file_path}-${item.instance}`}
                         type={item.type}
                         item={item}
                         selectedItem={selectedItem}
@@ -163,7 +163,7 @@ function PosterViewer() {
                 {activeFilter === "collections" &&
                   filteredCollections.map((collection) => (
                     <ListRow
-                      key={collection.file_hash}
+                      key={collection.file_path}
                       type="collection"
                       item={collection}
                       selectedItem={selectedItem}

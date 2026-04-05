@@ -14,13 +14,12 @@ function ListRow({
 }) {
   const isSelected =
     selectedItem?.type === item.type &&
-    selectedItem?.file_hash === item.file_hash &&
+    selectedItem?.file_path === item.file_path &&
     selectedItem?.instance === item.instance;
   return (
     <div className="group relative flex w-full items-center">
       <button
         onClick={() => onSelect(item)}
-        key={item.file_hash}
         className={`relative z-10 w-full px-4 py-2 text-left text-sm transition-colors ${isSelected ? "text-white" : "text-gray-300 hover:text-white"}`}
       >
         <span
@@ -44,16 +43,16 @@ function ListRow({
               left: rect.right - 160,
             });
             setOpenPopover(
-              openPopover === `${item.type}-${item.file_hash}-${item.instance}`
+              openPopover === `${item.type}-${item.file_path}-${item.instance}`
                 ? null
-                : `${item.type}-${item.file_hash}-${item.instance}`
+                : `${item.type}-${item.file_path}-${item.instance}`
             );
           }}
         >
           <Ellipsis size={18} className="cursor-default" />
         </button>
         {hasChevron && <div className="w-8" />}
-        {openPopover === `${item.type}-${item.file_hash}-${item.instance}` &&
+        {openPopover === `${item.type}-${item.file_path}-${item.instance}` &&
           createPortal(
             <div
               style={{
@@ -81,11 +80,11 @@ function ListRow({
                   })
                     .then((res) => res.json())
                     .then((data) => {
+                      setOpenPopover(null);
+                      if (selectedItem?.file_path == item.file_path) {
+                        onSelect(null);
+                      }
                       if (data.success) {
-                        setOpenPopover(null);
-                        if (selectedItem?.file_path == item.file_path) {
-                          onSelect(null);
-                        }
                         onDelete();
                       }
                     });
