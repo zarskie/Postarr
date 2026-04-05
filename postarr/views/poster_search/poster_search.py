@@ -25,6 +25,13 @@ def build_cache(root_dir):
     ]
 
 
+def reset_cache():
+    global _file_cache, _cache_built
+    _file_cache = []
+    _cache_built = False
+    postarr_logger.info("Poster search cache reset")
+
+
 def get_cache():
     global _file_cache, _cache_built
     if not _cache_built:
@@ -89,3 +96,9 @@ def serve_poster_image():
         return send_from_directory(directory, filename)
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@poster_search.route("/reset-cache", methods=["PUT"])
+def reset_cache_manual():
+    reset_cache()
+    return jsonify({"success": True, "message": "Cache reset successfully"})

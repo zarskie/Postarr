@@ -672,6 +672,8 @@ def run_plex_uploaderr_task(app, overrides: dict | None = None):
 def run_drive_sync_task(
     app, overrides: dict | None = None, chained: bool = False
 ) -> dict:
+    from postarr.views.poster_search.poster_search import reset_cache
+
     with app.app_context():
         postarr_logger.info(f"run_drive_sync_task called with chained={chained}")
         payload = webui_utils.create_drive_sync_payload()
@@ -693,6 +695,7 @@ def run_drive_sync_task(
             except Exception as e:
                 postarr_logger.debug(f"Error removing job '{job_id}': {e}")
             finally:
+                reset_cache()
                 sleep(2)
                 progress_instance.remove_job(job_id)
                 postarr_logger.info(f"Drive Sync: '{job_id}' has been removed")
@@ -700,6 +703,7 @@ def run_drive_sync_task(
         if chained:
             try:
                 drive_sync.sync_all_drives(progress_instance, job_id)
+                reset_cache()
                 progress_instance.remove_job(job_id)
                 postarr_logger.info(f"Drive Sync: '{job_id}' has been removed")
             except Exception as e:
