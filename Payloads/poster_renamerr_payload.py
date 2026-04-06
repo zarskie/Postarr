@@ -11,7 +11,7 @@ class Payload:
     unmatched_assets: bool
     replace_border: bool
     border_setting: str | None
-    custom_color: str
+    custom_color: str | None
     upload_to_plex: bool
     match_alt: bool
     drive_sync: bool

@@ -36,7 +36,7 @@ def create_poster_renamer_payload(radarr, sonarr, plex) -> PosterRenamerPayload:
     custom_color = (
         "#000000"
         if border_setting == "black"
-        else (settings.custom_color if settings else "")
+        else (settings.custom_color if settings else None)
     )
     poster_root = settings.poster_root if settings else ""
     raw_source_dirs = (

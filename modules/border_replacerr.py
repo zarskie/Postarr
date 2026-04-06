@@ -55,6 +55,9 @@ class BorderReplacerr:
         return final_image
 
     def replace_border(self, image_path: Path):
+        if not self.custom_color:
+            self.logger.error("custom_color is not set, cannot replace border")
+            return Image.open(image_path)
         image = Image.open(image_path)
         width, height = image.size
         crop_area = (26, 26, width - 26, height - 26)

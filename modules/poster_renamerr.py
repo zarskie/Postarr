@@ -64,7 +64,7 @@ class PosterRenamerr:
                     self.custom_color = None
                     self.replace_border = False
             else:
-                self.custom_color = ""
+                self.custom_color = None
                 self.replace_border = payload.replace_border
 
             self.border_replacerr = BorderReplacerr(custom_color=self.custom_color)
