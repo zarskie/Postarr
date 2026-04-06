@@ -221,6 +221,13 @@ class PosterRenamerr:
                 for item in dir_path.rglob("*")
                 if item.is_file()
             )
+            expected_folders = {}
+            for show in media_dict.get("shows", []):
+                normalized = utils.remove_chars(show["folder"])
+                expected_folders[normalized] = show["folder"]
+            for movie in media_dict.get("movies", []):
+                normalized = utils.remove_chars(movie["folder"])
+                expected_folders[normalized] = movie["folder"]
 
             show_titles = set()
             title_to_seasons_without_files = {}
@@ -228,6 +235,7 @@ class PosterRenamerr:
                 title = utils.remove_chars(show["folder"])
                 show_titles.add(title)
                 matched_seasons = show.get("matched_season_info", [])
+
                 if matched_seasons:
                     seasons_without_files = title_to_seasons_without_files.setdefault(
                         title, []
@@ -287,6 +295,15 @@ class PosterRenamerr:
                         if asset_title not in titles:
                             directories_to_remove.append(parent_dir)
                             removed_asset_count += 1
+                        elif (
+                            asset_title in expected_folders
+                            and parent_dir.name != expected_folders[asset_title]
+                        ):
+                            self.logger.debug(
+                                f"Removing stale casing folder: {parent_dir.name} (expected: {expected_folders[asset_title]})"
+                            )
+                            directories_to_remove.append(parent_dir)
+                            removed_asset_count += 1
                         else:
                             if asset_title in title_to_seasons_without_files:
                                 self.remove_upload_data_for_orphaned_asset(
@@ -315,7 +332,7 @@ class PosterRenamerr:
                                     asset_title,
                                 )
 
-            for directory in directories_to_remove:
+            for directory in set(directories_to_remove):
                 self._remove_directory(directory)
 
             for dir_path in directories_to_clean:
@@ -558,9 +575,9 @@ class PosterRenamerr:
             "sanitized_name_without_extension"
         ].removesuffix(" collection")
         object_to_populate["extra_sanitized_name_without_collection"] = (
-            object_to_populate[
-                "extra_sanitized_name_without_extension"
-            ].removesuffix(" collection")
+            object_to_populate["extra_sanitized_name_without_extension"].removesuffix(
+                " collection"
+            )
         )
         # strip all spaces out
         object_to_populate["sanitized_no_spaces"] = re.sub(
