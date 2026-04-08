@@ -289,6 +289,12 @@ def get_jobs_data():
 
 def fetch_unmatched_stats_from_db() -> dict[str, int | str]:
     stats = models.UnmatchedStats.query.get(1)
+    # seasons_with_file = models.UnmatchedSeasons.query.filter_by(is_missing=0).all()
+    # postarr_logger.debug(f"seasons_with_file count: {len(seasons_with_file)}")
+    # for s in seasons_with_file:
+    #     postarr_logger.debug(
+    #         f"  id={s.id} show_id={s.show_id} season={s.season} is_missing={s.is_missing}"
+    #     )
     if stats:
         unmatched_movies_all = models.UnmatchedMovies.query.count()
         unmatched_movies_with_file = models.UnmatchedMovies.query.filter_by(

@@ -17,6 +17,7 @@ class Database:
         conn = sqlite3.connect(Settings.DB_PATH.value)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def initialize_db(self):
@@ -1165,3 +1166,19 @@ class Database:
                     )
         except Exception as e:
             self.logger.error(f"update_stats failed: {e}", exc_info=True)
+
+    def cleanup_orhpaned_seasons(self):
+        with self.get_db_connection() as conn:
+            with closing(conn.cursor()) as cursor:
+                cursor.execute(
+                    """
+                    DELETE FROM unmatched_seasons
+                    WHERE show_id NOT IN (SELECT id FROM unmatched_shows)
+                    """
+                )
+                deleted = cursor.rowcount
+                if deleted:
+                    self.logger.info(
+                        f"Cleaned up {deleted} orphaned season(s) from unmatched_seasons"
+                    )
+            conn.commit()

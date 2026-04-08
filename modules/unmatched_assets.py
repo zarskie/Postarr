@@ -18,7 +18,7 @@ from progress import ProgressState
 
 class UnmatchedAssets:
     def __init__(self, payload: Payload):
-        self.logger = logging.getLogger("UnmatchedAssets")
+        self.logger = logging.getLogger("unmatched-assets")
         try:
             log_dir = Path(Settings.LOG_DIR.value) / Settings.UNMATCHED_ASSETS.value
             init_logger(
@@ -38,6 +38,7 @@ class UnmatchedAssets:
             )
             self.db = Database(self.logger)
             self.db.initialize_stats()
+            self.db.cleanup_orhpaned_seasons()
         except Exception as e:
             self.logger.exception("Failed to initialize UnmatchedAssets")
             raise e
@@ -292,6 +293,10 @@ class UnmatchedAssets:
         for show in current_unmatched_shows:
             show_title = show["title"]
             if show_title not in new_unmatched_lookup:
+                expected_cascade = [s["season"] for s in show.get("seasons", [])]
+                self.logger.debug(
+                    f"Deleting show: '{show_title}' (id={show['id']}) - expecting cascade delete for seasons: {expected_cascade}"
+                )
                 self.db.delete_unmatched_asset(
                     db_table="unmatched_shows", title=show_title
                 )
