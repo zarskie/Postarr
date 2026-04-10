@@ -412,14 +412,14 @@ def log_plex_media_summary(logger, plex_media_dict, title="Plex Media Summary"):
     summary_rows = []
     for instance, sections in plex_media_dict.items():
         for section_type, libraries in sections.items():
-            for _, items in libraries.items():
-                summary_rows.append([instance, section_type, len(items)])
+            for library_name, items in libraries.items():
+                summary_rows.append([instance, section_type, library_name, len(items)])
     logger.debug(
         "\n### %s ###\n%s\n",
         title,
         tabulate(
             summary_rows,
-            headers=["Instance", "Type", "Count"],
+            headers=["Instance", "Type", "Library", "Count"],
             tablefmt="simple",
         ),
     )
@@ -427,13 +427,14 @@ def log_plex_media_summary(logger, plex_media_dict, title="Plex Media Summary"):
         return
     for instance, sections in plex_media_dict.items():
         for section_type, libraries in sections.items():
-            for _, items in libraries.items():
+            for library_name, items in libraries.items():
                 rows = [[t, repr(item)] for t, item in items.items()]
                 logger.trace(  # type: ignore[attr-defined]
-                    "\n### %s | %s | %s ###\n%s\n",
+                    "\n### %s | %s | %s | %s ###\n%s\n",
                     title,
                     instance,
                     section_type,
+                    library_name,
                     tabulate(rows, headers=["Title", "Item"], tablefmt="simple"),
                 )
 

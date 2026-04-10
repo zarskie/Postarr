@@ -47,9 +47,10 @@ class PlexUploaderr:
             self.webhook_initial_delay = payload.webhook_initial_delay
             self.webhook_retry_delay = payload.webhook_retry_delay
             self.webhook_max_retries = payload.webhook_max_retries
+            self.upload_stats: dict[str, int] = {}
         except Exception as e:
             self.logger.error(
-                "Failed to initialize plex-uploaderr: %s", e, exc_info=True
+                "Failed to initialize plex uploaderr: %s", e, exc_info=True
             )
             raise
 
@@ -58,7 +59,7 @@ class PlexUploaderr:
         plex_media_objects: list,
         file_path: str,
         show_title: str | None = None,
-    ):
+    ) -> None:
         libraries = set()
         editions = set()
         for item in plex_media_objects:
@@ -73,10 +74,11 @@ class PlexUploaderr:
                             has_kometa_overlay_label = True
                             break
                 item.uploadPoster(filepath=file_path)
+                self.upload_stats[library] = self.upload_stats.get(library, 0) + 1
                 if has_kometa_overlay_label:
                     item.removeLabel(["Overlay"])
                     self.logger.debug(
-                        "Removed kometa overlay for item '%s'", item.title
+                        "Removed Kometa overlay for item '%s'", item.title
                     )
                 libraries.add(library)
                 if edition:
@@ -124,11 +126,11 @@ class PlexUploaderr:
                     file_name = utils.remove_chars(file_info["file_name"])
 
                 self.logger.trace(  # type: ignore[attr-defined]
-                    "Processing cached %s file: %s", item_type, file_path
+                    "Processing cached %s file: '%s'", item_type, file_path
                 )
                 uploaded_to_libraries = file_info.get("uploaded_to_libraries", [])
                 uploaded_editions = file_info.get("uploaded_editions", [])
-                item_matches = self.find_match(
+                item_matches, found_in_plex = self.find_match(
                     file_name,
                     plex_dict[item_type],
                     uploaded_to_libraries,
@@ -136,21 +138,18 @@ class PlexUploaderr:
                     file_path,
                 )
                 if not item_matches:
-                    self.logger.debug(
-                        "Item %s not found in plex, no further processing for this item",
-                        file_path,
-                    )
+                    if found_in_plex:
+                        self.logger.debug(
+                            "Item '%s' already uploaded to all libraries, skipping",
+                            file_path,
+                        )
+                    else:
+                        self.logger.warning(
+                            "No plex match found for item '%s', skipping", file_path
+                        )
                     processed_files.add(file_path)
                     continue
 
-                for library_name, item in item_matches:
-                    self.logger.debug(
-                        "Match found for file: %s -> Plex %s '%s' in library '%s'",
-                        file_path,
-                        item_type,
-                        item.title,
-                        library_name,
-                    )
                 item_list = [match[-1] for match in item_matches]
                 if file_path not in processed_files:
                     processed_files.add(file_path)
@@ -185,50 +184,61 @@ class PlexUploaderr:
         self.logger.trace("Processing cached season file: %s", file_path)  # type: ignore[attr-defined]
         uploaded_to_libraries = file_info.get("uploaded_to_libraries", [])
         uploaded_editions = file_info.get("uploaded_editions", [])
-        show_matches = self.find_match(
+        show_matches, found_in_plex = self.find_match(
             file_name,
             plex_show_dict["show"],
             uploaded_to_libraries,
             uploaded_editions,
             file_path,
+            log_match=False,
+        )
+        self.logger.trace(  # type: ignore[attr-defined]
+            "Show matches for '%s': %s",
+            file_path,
+            [(lib, show.title) for lib, show in show_matches],
         )
 
         if not show_matches:
-            self.logger.debug(
-                "All libraries skipped for season, no further processing."
-            )
+            if found_in_plex:
+                self.logger.debug(
+                    "Season file '%s' already uploaded to all libraries, skipping",
+                    file_path,
+                )
+            else:
+                self.logger.warning(
+                    "No Plex match found season file '%s', skipping", file_path
+                )
             processed_files.add(file_path)
             return True
 
-        for library_name, show in show_matches:
-            self.logger.debug(
-                "Match found for file %s -> Plex show '%s' in library '%s'",
-                file_path,
-                show.title,
-                library_name,
-            )
         matching_seasons = [
-            (show.title, season)
-            for _, show in show_matches
+            (library_name, show.title, season)
+            for library_name, show in show_matches
             for season in show.seasons()
             if season.index == season_num
         ]
 
         if matching_seasons:
-            first_show_title, first_season = matching_seasons[0]
-            self.logger.debug(
-                "Match found for Season %s for Show '%s'",
-                first_season,
-                first_show_title,
-            )
+            first_show_title = matching_seasons[0][1]
+            for (
+                library_name,
+                _,
+                season,
+            ) in matching_seasons:
+                self.logger.debug(
+                    "Match found for Season %s --> Plex show '%s' in library '%s'",
+                    season.index,
+                    first_show_title,
+                    library_name,
+                )
 
-            seasons_only = [season for _, season in matching_seasons]
+            seasons_only = [season for _, _, season in matching_seasons]
             if file_path not in processed_files:
                 processed_files.add(file_path)
                 self.add_poster_to_plex(seasons_only, file_path, first_show_title)
         else:
             for library_name, show in show_matches:
-                self.logger.debug(
+                self.logger.warning(
                     "Season %s not found for show '%s' in library '%s'",
                     season_num,
                     show.title,
@@ -243,8 +253,10 @@ class PlexUploaderr:
         uploaded_to_libraries: list,
         uploaded_editions: list,
         file_path: str,
-    ):
+        log_match: bool = True,
+    ) -> tuple[list, bool]:
         matches = []
+        found_in_plex = False
         for library_name, item_dict in plex_items.items():
             self.logger.trace("Looking for match in library '%s'", library_name)  # type: ignore[attr-defined]
             for title, plex_object in item_dict.items():
@@ -252,12 +264,13 @@ class PlexUploaderr:
                 if isinstance(plex_object, list):
                     for item in plex_object:
                         if file_name == item_name:
+                            found_in_plex = True
                             if item.type == "movie":
                                 edition_title = self.get_edition_title_from_plex_object(
                                     item
                                 )
                                 self.logger.trace(  # type: ignore[attr-defined]
-                                    "Edition title for %s %s: '%s'",
+                                    "Edition title for %s '%s': '%s'",
                                     item.type,
                                     title,
                                     edition_title,
@@ -265,10 +278,10 @@ class PlexUploaderr:
 
                                 if edition_title in uploaded_editions:
                                     self.logger.trace(  # type: ignore[attr-defined]
-                                        "Edition '%s' already uploaded to library '%s' for %s, skipping",
+                                        "Edition '%s' already uploaded to library '%s' for '%s', skipping",
                                         edition_title,
                                         library_name,
-                                        item_name,
+                                        title,
                                     )
                                     continue
                                 if self.add_default_edition_if_needed(
@@ -276,38 +289,40 @@ class PlexUploaderr:
                                     uploaded_editions,
                                     file_path,
                                     library_name,
-                                    item_name,
+                                    title,
                                     edition_title,
                                 ):
                                     continue
                             else:
                                 if library_name in uploaded_to_libraries:
-                                    self.logger.debug(
-                                        "File already uploaded to library '%s' for %s, skipping",
+                                    self.logger.trace(  # type: ignore[attr-defined]
+                                        "File '%s' already uploaded to library '%s' for item '%s', skipping",
+                                        file_path,
                                         library_name,
-                                        item_name,
+                                        title,
                                     )
                                     continue
-
-                            self.logger.debug(
-                                "Match found '%s': file:%s --> plex:%s",
-                                library_name,
-                                file_name,
-                                item_name,
-                            )
+                            if log_match:
+                                self.logger.debug(
+                                    "Match found in library '%s' for file '%s' --> Plex item '%s'",
+                                    library_name,
+                                    file_path,
+                                    title,
+                                )
                             matches.append((library_name, item))
                 else:
                     if file_name == item_name:
+                        found_in_plex = True
                         if plex_object.type == "movie":
                             edition_title = self.get_edition_title_from_plex_object(
                                 plex_object
                             )
                             if edition_title in uploaded_editions:
                                 self.logger.trace(  # type: ignore[attr-defined]
-                                    "Edition '%s' already uploaded to library '%s' for %s, skipping",
+                                    "Edition '%s' already uploaded to library '%s' for '%s', skipping",
                                     edition_title,
                                     library_name,
-                                    item_name,
+                                    title,
                                 )
                                 continue
                             if self.add_default_edition_if_needed(
@@ -315,26 +330,28 @@ class PlexUploaderr:
                                 uploaded_editions,
                                 file_path,
                                 library_name,
-                                item_name,
+                                title,
                                 edition_title,
                             ):
                                 continue
                         else:
                             if library_name in uploaded_to_libraries:
-                                self.logger.debug(
-                                    "File already uploaded to library '%s' for %s, skipping",
+                                self.logger.trace(  # type: ignore[attr-defined]
+                                    "File '%s' already uploaded to library '%s' for '%s', skipping",
+                                    file_path,
                                     library_name,
-                                    item_name,
+                                    title,
                                 )
                                 continue
-                        self.logger.debug(
-                            "Match found '%s': file:%s --> plex:%s",
-                            library_name,
-                            file_name,
-                            item_name,
-                        )
+                        if log_match:
+                            self.logger.debug(
+                                "Match found in library '%s' for file '%s' --> Plex item '%s'",
+                                library_name,
+                                file_path,
+                                title,
+                            )
                         matches.append((library_name, plex_object))
-        return matches
+        return matches, found_in_plex
 
     def get_edition_title_from_plex_object(self, plex_object):
         edition_title = getattr(plex_object, "editionTitle", None)
@@ -357,9 +374,9 @@ class PlexUploaderr:
             and library_name in uploaded_to_libraries
         ):
             self.logger.trace(  # type: ignore[attr-defined]
-                "Default edition already uploaded to '%s' for '%s', appending to editions and skipping",
-                library_name,
+                "No editions recorded for '%s' in library '%s', but library already uploaded — assuming default edition and skipping",
                 item_name,
+                library_name,
             )
             uploaded_editions.append(edition_title)
             self.db.update_uploaded_editions(file_path, uploaded_editions)
@@ -616,6 +633,7 @@ class PlexUploaderr:
         job_id: str | None = None,
     ):
         plex_media_dict = {}
+        self.upload_stats = {}
 
         utils.log_banner(self.logger, Settings.PLEX_UPLOADERR.value, job_id)
         if self.reapply_posters:
@@ -654,11 +672,15 @@ class PlexUploaderr:
             ):
                 valid_files[file_path] = file_info
             else:
+                has_media = (
+                    file_info.get("has_file")
+                    if file_info.get("media_type") == "movies"
+                    else file_info.get("has_episodes")
+                )
                 self.logger.debug(
-                    "Skipping %s: has_episodes=%s, has_file=%s, media_type=%s",
+                    "Skipping %s: has_media=%s, media_type=%s",
                     file_path,
-                    file_info.get("has_episodes"),
-                    file_info.get("has_file"),
+                    bool(has_media),
                     file_info.get("media_type"),
                 )
         if job_id and cb:
@@ -734,6 +756,12 @@ class PlexUploaderr:
             if job_id and cb:
                 cb(job_id, 100, ProgressState.COMPLETED)
 
+        if self.upload_stats:
+            self.logger.info("Upload summary:")
+            for library_name, count in self.upload_stats.items():
+                self.logger.info(" %s: %s poster(s)", library_name, count)
+        else:
+            self.logger.info("Did not upload anything")
         self.logger.info("Finished plex upload.")
 
     def update_cached_files(self, cached_files: dict):
@@ -783,8 +811,7 @@ class PlexUploaderr:
                         self.db.update_has_file(file_path, current_has_file)
                 else:
                     self.logger.warning(
-                        "Movie title: '%s' not found in movies lookup when processing %s.",
-                        title,
+                        "Movie title not found in movies lookup when processing %s",
                         file_path,
                     )
 
@@ -805,8 +832,7 @@ class PlexUploaderr:
                         self.db.update_has_episodes(file_path, current_has_episodes)
                 else:
                     self.logger.warning(
-                        "Show title '%s' not found in shows lookup when processing '%s'.",
-                        title,
+                        "Show title not found in shows lookup when processing '%s'",
                         file_path,
                     )
 
@@ -814,6 +840,7 @@ class PlexUploaderr:
         self,
         job_id: str,
     ):
+        self.upload_stats = {}
         utils.log_banner(
             self.logger, Settings.PLEX_UPLOADERR.value + " (webhook)", job_id
         )
@@ -956,4 +983,10 @@ class PlexUploaderr:
                             item_title,
                             webhook_cached_files,
                         )
+        if self.upload_stats:
+            self.logger.info("Upload summary:")
+            for library_name, count in self.upload_stats.items():
+                self.logger.info(" %s: %s poster(s)", library_name, count)
+        else:
+            self.logger.info("Did not upload anything")
         self.logger.info("Finished plex upload (webhook)")
