@@ -1,3 +1,4 @@
+# pyright: reportCallIssue=false
 import os
 from datetime import datetime
 from logging import Logger
@@ -7,8 +8,6 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from postarr import models
-from postarr.models.file_cache import FileCache
-from postarr.models.jobs import CurrentJobs, JobHistory
 
 
 class Database:
@@ -19,7 +18,9 @@ class Database:
     def delete_file_cache_entry(self, file_path: str) -> bool:
         try:
             entry = (
-                self.db.session.query(FileCache).filter_by(file_path=file_path).first()
+                self.db.session.query(models.FileCache)
+                .filter_by(file_path=file_path)
+                .first()
             )
             if entry:
                 self.db.session.delete(entry)
@@ -86,7 +87,8 @@ class Database:
                     ).first()
                     if existing_season is None:
                         season = models.UnmatchedSeasons(
-                            show_id=existing.id, season=season_str
+                            show_id=existing.id,
+                            season=season_str,
                         )
                         self.db.session.add(season)
 
@@ -111,11 +113,8 @@ class Database:
 
     def get_first_file_settings(self) -> dict | None:
         try:
-            first_entry = self.db.session.query(FileCache).first()
+            first_entry = self.db.session.query(models.FileCache).first()
             if first_entry:
-                self.logger.debug(
-                    f"Found first file in file cache: {first_entry.file_path}"
-                )
                 return {
                     "border_setting": first_entry.border_setting,
                     "custom_color": first_entry.custom_color,
@@ -130,15 +129,17 @@ class Database:
     ) -> None:
         try:
             first_entry = (
-                self.db.session.query(JobHistory)
+                self.db.session.query(models.JobHistory)
                 .filter_by(job_name=job_name)
-                .order_by(desc(JobHistory.run_time))
+                .order_by(desc(models.JobHistory.run_time))
                 .first()
             )
             last_run = first_entry.run_time if first_entry else None
 
             job = (
-                self.db.session.query(CurrentJobs).filter_by(job_name=job_name).first()
+                self.db.session.query(models.CurrentJobs)
+                .filter_by(job_name=job_name)
+                .first()
             )
             if job:
                 job.last_run = last_run
@@ -148,7 +149,7 @@ class Database:
 
                 job.next_run = next_run
             else:
-                job = CurrentJobs(
+                job = models.CurrentJobs(
                     job_name=job_name,
                     last_run=last_run,
                     next_run=next_run,
@@ -169,7 +170,7 @@ class Database:
 
             current_time = datetime.now(local_tz)
 
-            new_entry = JobHistory(
+            new_entry = models.JobHistory(
                 job_name=job_name,
                 run_time=current_time,
                 status=status,
@@ -189,7 +190,9 @@ class Database:
     def clear_scheduled_job(self, job_name: str) -> None:
         try:
             job = (
-                self.db.session.query(CurrentJobs).filter_by(job_name=job_name).first()
+                self.db.session.query(models.CurrentJobs)
+                .filter_by(job_name=job_name)
+                .first()
             )
             if job:
                 job.next_run = None
@@ -206,16 +209,16 @@ class Database:
     def _prune_old_job_entries(self, job_name: str) -> None:
         try:
             job_entries_subquery = (
-                select(JobHistory.id)
+                select(models.JobHistory.id)
                 .filter_by(job_name=job_name)
-                .order_by(desc(JobHistory.run_time))
+                .order_by(desc(models.JobHistory.run_time))
                 .limit(10)
             )
             deleted_count = (
-                self.db.session.query(JobHistory)
+                self.db.session.query(models.JobHistory)
                 .filter(
-                    JobHistory.job_name == job_name,
-                    ~JobHistory.id.in_(job_entries_subquery),
+                    models.JobHistory.job_name == job_name,
+                    ~models.JobHistory.id.in_(job_entries_subquery),
                 )
                 .delete(synchronize_session=False)
             )

@@ -1,9 +1,11 @@
 import hashlib
+import logging
 import re
 import unicodedata
 from logging import Logger
 from pathlib import Path
 
+from tabulate import tabulate
 from unidecode import unidecode
 
 from modules.media import Radarr, Server, Sonarr
@@ -14,7 +16,6 @@ from Payloads.unmatched_assets_payload import Payload as UnmatchedAssetsPayload
 def get_combined_media_dict(
     radarr_instances: dict[str, Radarr],
     sonarr_instances: dict[str, Sonarr],
-    logger: Logger,
 ) -> dict:
     combined_series_dict = {}
     combined_movies_dict = {}
@@ -205,6 +206,263 @@ def convert_day_of_week(day: str) -> str:
     reverse_map = {v: k for k, v in day_map.items()}
 
     return day_map.get(day, reverse_map.get(day.lower(), day))
+
+
+def log_media_summary(logger, media_dict, media_type, title="Media Summary"):
+    if not media_dict:
+        return
+    has_media = "has_file" if media_type == "movies" else "has_episodes"
+    headers = [
+        "Arr Title",
+        "Folder Name",
+        "Parent Folder",
+        "ID",
+        "Year",
+        "Instance",
+        "Has File" if media_type == "movies" else "Has Episodes",
+        "TMDB",
+    ]
+    if media_type == "shows":
+        headers.append("TVDB")
+    rows = []
+    for value in media_dict:
+        entries = value if isinstance(value, list) else [value]
+        for media in entries:
+            path = Path(media.get("path", ""))
+            row = [
+                media.get("arr_title", ""),
+                path.name,
+                path.parent.name,
+                media.get("id", ""),
+                media.get("media_year", ""),
+                media.get("instance", ""),
+                "yes" if media.get(has_media, False) else "no",
+                media.get("tmdb_id", ""),
+            ]
+            if media_type == "shows":
+                row.append(media.get("tvdb_id", ""))
+            rows.append(row)
+
+    logger.debug(
+        "\n### %s ###\n%s\n", title, tabulate(rows, headers=headers, tablefmt="simple")
+    )
+
+
+def log_collections_summary(logger, collections_dict, title="Collections Summary"):
+    for collection_type, titles in collections_dict.items():
+        if not titles:
+            continue
+        rows = [[t] for t in titles]
+        table_str = tabulate(rows, headers=["Title"], tablefmt="simple")
+        logger.debug(
+            "\n### %s - %s ###\n%s\n", title, collection_type.capitalize(), table_str
+        )
+
+
+def _compress_seasons(seasons):
+    if not seasons:
+        return ""
+
+    sorted_seasons = sorted(seasons, key=lambda s: s.get("season", ""))
+    groups = []
+    group_start = sorted_seasons[0]
+    group_end = sorted_seasons[0]
+
+    for season in sorted_seasons[1:]:
+        if season.get("has_episodes") == group_end.get("has_episodes"):
+            group_end = season
+        else:
+            groups.append((group_start, group_end, group_end.get("has_episodes")))
+            group_start = season
+            group_end = season
+    groups.append((group_start, group_end, group_end.get("has_episodes")))
+
+    parts = []
+    for start, end, has_ep in groups:
+        label = "yes" if has_ep else "no"
+        if start["season"] == end["season"]:
+            parts.append(f"S{start['season'][-2:]}({label})")
+        else:
+            parts.append(f"S{start['season'][-2:]}-S{end['season'][-2:]}({label})")
+
+    return " ".join(parts)
+
+
+def _season_sort_key(item):
+    file_name = item[0]
+    match = re.search(r"- Season (\d+)", file_name)
+    if match:
+        return int(match.group(1))
+    return 999
+
+
+def log_matched_files_summary(
+    logger, matched_files, media_type, title="Matched Files Summary"
+):
+    if not matched_files:
+        return
+
+    if media_type == "movies":
+        headers = [
+            "Matched File",
+            "Source",
+            "Arr Title",
+            "Year",
+            "Instance",
+            "Has File",
+            "TMDB",
+        ]
+        rows = []
+        for file_path, info in matched_files.items():
+            match = info.get("match", {})
+            rows.append(
+                [
+                    file_path.name,
+                    file_path.parent.name,
+                    match.get("arr_title") or match.get("title", ""),
+                    match.get("media_year", ""),
+                    match.get("instance", ""),
+                    "yes" if match.get("has_file") else "no",
+                    match.get("tmdb_id", ""),
+                ]
+            )
+    else:
+        headers = [
+            "Matched File",
+            "Source",
+            "Arr Title",
+            "Year",
+            "Instance",
+            "Series Has Episodes",
+            "TMDB",
+            "TVDB",
+            "Seasons Have Episodes",
+        ]
+        shows = {}
+        for file_path, info in matched_files.items():
+            match = info.get("match", {})
+            title_key = match.get("arr_title") or match.get("title", "")
+            if title_key not in shows:
+                shows[title_key] = {
+                    "match": match,
+                    "main_file": None,
+                    "main_source": None,
+                    "season_files": [],
+                    "seasons": [],
+                }
+            is_season_file = (
+                "- Season" in Path(file_path).name
+                or "- Specials" in Path(file_path).name
+            )
+            if is_season_file:
+                source = Path(file_path).parent.name
+                shows[title_key]["season_files"].append((Path(file_path).name, source))
+            else:
+                shows[title_key]["main_file"] = Path(file_path).name
+                shows[title_key]["main_source"] = Path(file_path).parent.name
+                shows[title_key]["seasons"] = match.get("matched_season_info", [])
+        rows = []
+        for show_title, data in shows.items():
+            match = data["match"]
+            rows.append(
+                [
+                    data["main_file"] or "",
+                    data["main_source"] or "",
+                    show_title,
+                    match.get("media_year", ""),
+                    match.get("instance", ""),
+                    "yes" if match.get("has_episodes") else "no",
+                    match.get("tmdb_id", ""),
+                    match.get("tvdb_id", ""),
+                    _compress_seasons(data["seasons"]),
+                ]
+            )
+            for file_name, source in sorted(data["season_files"], key=_season_sort_key):
+                season_part = file_name.split("- ")[-1]
+                rows.append([f"↳ {season_part}", source, "", "", "", "", "", "", ""])
+
+    logger.debug(
+        "\n### %s ###\n%s\n",
+        title,
+        tabulate(rows, headers=headers, tablefmt="simple"),
+    )
+
+
+def log_matched_collections_summary(
+    logger, matched_collections, title="Matched Collections Summary"
+):
+    if not matched_collections:
+        return
+
+    rows = []
+    for item in matched_collections:
+        path = Path(item.get("file", ""))
+        rows.append([path.name, path.parent.name, item.get("match", "")])
+
+    logger.debug(
+        "\n### %s ###\n%s\n",
+        title,
+        tabulate(rows, headers=["File", "Source", "Match"], tablefmt="simple"),
+    )
+
+
+def log_plex_media_summary(logger, plex_media_dict, title="Plex Media Summary"):
+    if not plex_media_dict:
+        return
+    summary_rows = []
+    for instance, sections in plex_media_dict.items():
+        for section_type, libraries in sections.items():
+            for _, items in libraries.items():
+                summary_rows.append([instance, section_type, len(items)])
+    logger.debug(
+        "\n### %s ###\n%s\n",
+        title,
+        tabulate(
+            summary_rows,
+            headers=["Instance", "Type", "Count"],
+            tablefmt="simple",
+        ),
+    )
+    if not logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+        return
+    for instance, sections in plex_media_dict.items():
+        for section_type, libraries in sections.items():
+            for _, items in libraries.items():
+                rows = [[t, repr(item)] for t, item in items.items()]
+                logger.trace(  # type: ignore[attr-defined]
+                    "\n### %s | %s | %s ###\n%s\n",
+                    title,
+                    instance,
+                    section_type,
+                    tabulate(rows, headers=["Title", "Item"], tablefmt="simple"),
+                )
+
+
+def log_plex_media_summary_webhook(logger, media_dict, title="Plex Media Summary"):
+    if not media_dict:
+        return
+    for library_title, items in media_dict.items():
+        rows = [[t, repr(item)] for t, item in items.items()]
+        logger.trace(  # type: ignore[attr-defined]
+            "\n### %s | %s ###\n%s\n",
+            title,
+            library_title,
+            tabulate(rows, headers=["Title", "Item"], tablefmt="simple"),
+        )
+
+
+def log_banner(logger, job_name, job_id):
+    logger.info(f"### New {job_name} run | Job ID: {job_id} ###")
+
+
+def normalize(obj):
+    if isinstance(obj, dict):
+        return {str(k): normalize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [normalize(v) for v in obj]
+    if isinstance(obj, Path):
+        return str(obj)
+    return obj
 
 
 def parse_schedule_string(schedule_str: str, logger: Logger) -> list[dict[str, str]]:

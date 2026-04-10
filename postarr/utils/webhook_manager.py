@@ -4,7 +4,7 @@ from pathlib import Path
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import scoped_session
 
-from postarr.models.webhook_cache import WebhookCache
+from postarr import models
 
 
 class WebhookManager:
@@ -19,40 +19,52 @@ class WebhookManager:
         cutoff = now - timedelta(seconds=cache_duration)
 
         self.logger.debug(
-            f"Checking for duplicates for item: {item_name}, type: {new_item['type']}"
+            "Checking for duplicates for item '%s', type: %s",
+            item_name,
+            new_item["type"],
         )
 
-        expired_count = (
-            self.db_session.query(WebhookCache)
-            .filter(WebhookCache.timestamp < cutoff)
-            .delete()
+        expired = (
+            self.db_session.query(models.WebhookCache)
+            .filter(models.WebhookCache.timestamp < cutoff)
+            .all()
         )
-        self.logger.debug(f"Expired webhookes removed: {expired_count}")
+        if expired:
+            self.logger.debug(
+                "Removing %s expired webhooks: %s",
+                len(expired),
+                [e.item_name for e in expired],
+            )
+            for e in expired:
+                self.db_session.delete(e)
 
         duplicate = (
-            self.db_session.query(WebhookCache)
+            self.db_session.query(models.WebhookCache)
             .filter_by(item_type=new_item["type"], item_name=item_name)
             .first()
         )
         if duplicate:
             self.logger.debug(
-                f"Duplicate webhook detected for item: {item_name}, type: {new_item['type']}"
+                "Duplicate webhook detected for item '%s', %s",
+                item_name,
+                new_item["type"],
             )
             return True
 
-        webhook_entry = WebhookCache(
-            item_type=new_item["type"],
-            item_name=item_name,
+        webhook_entry = models.WebhookCache(
+            item_type=new_item["type"],  # type: ignore[call-arg]
+            item_name=item_name,  # type: ignore[call-arg]
         )
 
         self.db_session.add(webhook_entry)
         try:
             self.db_session.commit()
-            self.logger.debug(f"New webhook added to cache: {item_name}")
+            self.logger.debug("New webhook added to cache '%s'", item_name)
         except IntegrityError:
             self.db_session.rollback()
             self.logger.debug(
-                f"IntegrityError: Duplicate webhook entry attempted for item: {item_name}"
+                "IntegrityError: Duplicate webhook entry attempted for item: %s",
+                item_name,
             )
             return True
 

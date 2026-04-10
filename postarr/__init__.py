@@ -1,8 +1,7 @@
+import json
 import logging
 import os
-import traceback
 from concurrent.futures import ThreadPoolExecutor
-from pprint import pformat
 from time import sleep
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,14 +13,15 @@ from flask_sqlalchemy import SQLAlchemy
 
 from modules.border_replacerr import BorderReplacerr
 from modules.drive_sync import DriveSync
+from modules.logger import get_postarr_logger
 from modules.plex_upload import PlexUploaderr
 from modules.poster_renamerr import PosterRenamerr
 from modules.settings import Settings
 from modules.unmatched_assets import UnmatchedAssets
+from modules.utils import normalize
 from postarr.config.config import Config
 from postarr.utils import webui_utils
-from postarr.utils.logger_utils import get_postarr_logger
-from postarr.utils.webui_utils import LOG_LEVELS, get_instances
+from postarr.utils.webui_utils import LOG_LEVELS, get_instances, sanitize_for_log
 from progress import ProgressState, progress_instance
 
 # all globals needs to be defined here
@@ -70,6 +70,7 @@ def load_schedules_from_db(app):
             from postarr import models
 
             scheduler.remove_all_jobs()
+            postarr_logger.debug("Cleared existing scheduler jobs")
 
             MODULE_JOBS = {
                 "poster-renamerr": lambda: run_renamer_task(app),
@@ -78,6 +79,8 @@ def load_schedules_from_db(app):
                 "drive-sync": lambda: run_drive_sync_task(app),
             }
             schedules = models.Schedule.query.all()
+            postarr_logger.debug(f"Found {len(schedules)} schedule(s) in database")
+
             for schedule in schedules:
                 job_func = MODULE_JOBS.get(schedule.module)
                 if not job_func:
@@ -90,7 +93,7 @@ def load_schedules_from_db(app):
                     trigger = IntervalTrigger(minutes=minutes)
                 else:
                     postarr_logger.warning(
-                        f"Unknown schedule type: {schedule.schedule_type}"
+                        f"Unknown schedule type: {schedule.schedule_type} for {schedule.module}"
                     )
                     continue
 
@@ -100,6 +103,7 @@ def load_schedules_from_db(app):
                     id=f"{schedule.module}-{schedule.id}",
                     replace_existing=True,
                 )
+                postarr_logger.info(f"Scheduled job {schedule.module}")
         except Exception as e:
             postarr_logger.error(f"Error loading schedules: {e}")
 
@@ -115,14 +119,25 @@ def update_next_run_times(app):
                 if job:
                     next_run = getattr(job, "next_run_time", None)
                     if next_run:
-                        if Settings.TIME_FORMAT.value == "24":
-                            schedule.next_run = next_run.strftime("%b %d, %Y %H:%M")
-                        else:
-                            schedule.next_run = next_run.strftime("%b %d, %Y %I:%M %p")
+                        fmt = (
+                            "%b %d, %Y %H:%M"
+                            if Settings.TIME_FORMAT.value == "24"
+                            else "%b %d, %Y %I:%M %p"
+                        )
+                        schedule.next_run = next_run.strftime(fmt)
+                        postarr_logger.debug(
+                            f"[{schedule.module}] next run scheduled for {schedule.next_run}"
+                        )
                     else:
                         schedule.next_run = "Pending"
+                        postarr_logger.warning(
+                            f"[{schedule.module}] has no next run time - marked Pending"
+                        )
                 else:
                     schedule.next_run = "N/A"
+                    postarr_logger.warning(
+                        f"[{schedule.module}-{schedule.id}] job not found in scheduler"
+                    )
             db.session.commit()
         except Exception as e:
             postarr_logger.error(f"Error updating next run times: {e}")
@@ -141,15 +156,16 @@ def create_app() -> Flask:
 
     if app.debug:
         with app.app_context():
-            version = os.getenv("VERSION", "0.0.1")
+            version = os.getenv("VERSION", "dev")
             postarr_logger.info(f"Starting Postarr v{version}")
-            postarr_logger.info("Initializing database schema...")
             with db.engine.connect() as conn:
                 conn.execute(db.text("PRAGMA journal_mode=WAL;"))
-            postarr_logger.info("WAL mode enabled for SQLite database")
             load_schedules_from_db(app)
             if not scheduler.running:
                 scheduler.start()
+                postarr_logger.info("Scheduler started")
+            else:
+                postarr_logger.warning("Scheduler already running - skipping start")
             update_next_run_times(app)
 
     # import needed blueprints
@@ -203,9 +219,6 @@ def run_renamer_task(
                 if "driveSync" in overrides:
                     poster_renamer_payload.drive_sync = overrides["driveSync"]
 
-            postarr_logger.debug("Poster Renamerr Payload:")
-            postarr_logger.debug(pformat(poster_renamer_payload))
-
             job_id = progress_instance.add_job(job_name=Settings.POSTER_RENAMERR.value)
             postarr_logger.info(f"Job Poster Renamerr: '{job_id}' added.")
 
@@ -240,9 +253,11 @@ def run_renamer_task(
 
             def run_renamerr_callback(fut):
                 try:
-                    postarr_logger.info("Renamerr task completed")
                     media_dict = fut.result()
                     if poster_renamer_payload.unmatched_assets:
+                        postarr_logger.info(
+                            "Poster renamerr completed, starting unmatched assets"
+                        )
                         unmatched_future = executor.submit(
                             handle_unmatched_assets_task,
                             app,
@@ -253,8 +268,8 @@ def run_renamer_task(
                         )
                         if poster_renamer_payload.upload_to_plex:
                             unmatched_future.add_done_callback(
-                                lambda fut: run_unmatched_after_renamerr_callback(
-                                    media_dict, fut
+                                lambda _: run_unmatched_after_renamerr_callback(
+                                    media_dict
                                 )
                             )
                         else:
@@ -263,10 +278,13 @@ def run_renamer_task(
                     elif poster_renamer_payload.upload_to_plex:
                         if media_dict:
                             postarr_logger.debug(
-                                f"Media dict from renamer: {media_dict}"
+                                "Media dict from renamer:\n%s",
+                                json.dumps(
+                                    normalize(media_dict), indent=2, ensure_ascii=False
+                                ),
                             )
                         else:
-                            postarr_logger.warning(
+                            postarr_logger.debug(
                                 "No media dict from renamer. Proceeding with full upload."
                             )
                         plex_upload_future = executor.submit(
@@ -284,11 +302,16 @@ def run_renamer_task(
                         remove_job()
 
                 except Exception as e:
-                    postarr_logger.error(f"Error in plex upload callback: {e}")
+                    postarr_logger.error(f"Error in run_renamerr_callback: {e}")
 
-            def run_border_replacerr_callback(fut):
+            def run_border_replacerr_callback(_):
                 try:
-                    postarr_logger.info("Border replacerr task completed.")
+                    postarr_logger.info(
+                        "Border replacerr completed, starting poster renamerr"
+                    )
+                    postarr_logger.debug(
+                        f"Poster Renamerr Payload:\n{json.dumps(sanitize_for_log(poster_renamer_payload), indent=2, default=str)}"
+                    )
                     renamer_future = executor.submit(
                         renamer.run, progress_instance, job_id
                     )
@@ -296,13 +319,22 @@ def run_renamer_task(
                 except Exception as e:
                     postarr_logger.error(f"Error in run_border_replacerr_callback: {e}")
 
-            def run_unmatched_after_renamerr_callback(media_dict, fut):
+            def run_unmatched_after_renamerr_callback(media_dict):
                 try:
-                    postarr_logger.info("Unmatched assets task completed.")
+                    postarr_logger.info(
+                        "Unmatched assets completed, starting plex uploaderr"
+                    )
                     if media_dict:
-                        postarr_logger.debug(f"Media dict from renamer: {media_dict}")
+                        postarr_logger.debug(
+                            "Media dict from renamerr:\n%s",
+                            json.dumps(
+                                normalize(media_dict),
+                                indent=2,
+                                ensure_ascii=False,
+                            ),
+                        )
                     else:
-                        postarr_logger.warning(
+                        postarr_logger.debug(
                             "No media dict from renamer. Proceeding with full upload."
                         )
                     plex_upload_future = executor.submit(
@@ -321,14 +353,16 @@ def run_renamer_task(
                         f"Error in run_unmatched_after_renamerr_callback: {e}"
                     )
 
-            def run_plex_upload_callback(fut):
-                postarr_logger.info("Plex uploaderr task completed.")
+            def run_plex_upload_callback(_):
+                postarr_logger.info("Plex uploaderr task completed, cleaning up job")
                 remove_job()
 
-            def run_unmatched_assets_only_unmatched_callback(fut):
+            def run_unmatched_assets_only_unmatched_callback(_):
                 try:
-                    postarr_logger.info("Unmatched assets task completed.")
                     if check_borders():
+                        postarr_logger.info(
+                            "Unmatched assets completed, starting border replacerr"
+                        )
                         border_replacerr_future = executor.submit(
                             run_border_replacer_task, app
                         )
@@ -336,6 +370,12 @@ def run_renamer_task(
                             run_border_replacerr_callback
                         )
                     else:
+                        postarr_logger.info(
+                            "Unmatched assets completed, starting poster renamerr"
+                        )
+                        postarr_logger.debug(
+                            f"Poster Renamerr Payload:\n{json.dumps(sanitize_for_log(poster_renamer_payload), indent=2, default=str)}"
+                        )
                         renamer_future = executor.submit(
                             renamer.run, progress_instance, job_id
                         )
@@ -345,13 +385,15 @@ def run_renamer_task(
                         f"Error in run_unmatched_assets_only_unmatched_callback: {e}"
                     )
 
-            def run_drive_sync_callback(fut):
+            def run_drive_sync_callback(_):
                 try:
-                    postarr_logger.info("Drive sync task completed.")
                     if (
                         poster_renamer_payload.unmatched_assets
                         and poster_renamer_payload.only_unmatched
                     ):
+                        postarr_logger.info(
+                            "Drive sync task completed, starting unmatched assets"
+                        )
                         unmatched_future = executor.submit(
                             handle_unmatched_assets_task,
                             app,
@@ -364,6 +406,12 @@ def run_renamer_task(
                             run_unmatched_assets_only_unmatched_callback
                         )
                     else:
+                        postarr_logger.info(
+                            "Drive sync completed, starting poster renamerr"
+                        )
+                        postarr_logger.debug(
+                            f"Poster Renamerr Payload:\n{json.dumps(sanitize_for_log(poster_renamer_payload), indent=2, default=str)}"
+                        )
                         renamer_future = executor.submit(
                             renamer.run, progress_instance, job_id
                         )
@@ -372,7 +420,7 @@ def run_renamer_task(
                     postarr_logger.error(f"Error in run_drive_sync_callback: {e}")
 
             if webhook_item:
-                postarr_logger.debug("Submitting webhook task to thread pool")
+                postarr_logger.debug("Starting poster renamerr (webhook)")
                 future = executor.submit(
                     renamer.run,
                     progress_instance,
@@ -382,7 +430,7 @@ def run_renamer_task(
                 future.add_done_callback(run_renamerr_callback)
             else:
                 if poster_renamer_payload.drive_sync:
-                    postarr_logger.info("Starting drive sync task before renamer...")
+                    postarr_logger.info("Starting drive sync")
                     drive_sync_future = executor.submit(
                         run_drive_sync_task, app, chained=True
                     )
@@ -391,6 +439,7 @@ def run_renamer_task(
                     poster_renamer_payload.unmatched_assets
                     and poster_renamer_payload.only_unmatched
                 ):
+                    postarr_logger.info("Starting unmatched assets")
                     unmatched_future = executor.submit(
                         handle_unmatched_assets_task,
                         app,
@@ -403,19 +452,22 @@ def run_renamer_task(
                         run_unmatched_assets_only_unmatched_callback
                     )
                 else:
+                    postarr_logger.info("Starting poster renamerr")
+                    postarr_logger.debug(
+                        f"Poster Renamerr Payload:\n{json.dumps(sanitize_for_log(poster_renamer_payload), indent=2, default=str)}"
+                    )
                     renamer_future = executor.submit(
                         renamer.run, progress_instance, job_id
                     )
                     renamer_future.add_done_callback(run_renamerr_callback)
 
-            postarr_logger.debug("Returning response: Poster renamer task started")
             return {
                 "message": "Poster renamer task started",
                 "job_id": job_id,
                 "success": True,
             }
         except Exception as e:
-            postarr_logger.error(f"Error in Poster Renamer Task: {str(e)}")
+            postarr_logger.error(f"Error in Poster Renamer Task: {e}")
             return {"success": False, "message": str(e)}
 
 
@@ -470,7 +522,7 @@ def run_border_replacer_task(
                     and current_custom_color == custom_color
                 ):
                     postarr_logger.info(
-                        "Skipping task: Border and color settings already applied to files."
+                        f"Skipping border replacerr: settings already applied (border={border_setting}, color={custom_color})"
                     )
                     return {
                         "message": "Border and color settings already applied. Task skipped.",
@@ -479,16 +531,18 @@ def run_border_replacer_task(
                     }
 
             job_id = progress_instance.add_job(Settings.BORDER_REPLACERR.value)
-            postarr_logger.debug(f"Job Border Replacerr: '{job_id}' added.")
-            postarr_logger.debug("Border Replacerr Payload:")
-            postarr_logger.debug(pformat(border_replacerr_payload))
+            postarr_logger.info(f"Job Border Replacerr: '{job_id}' added.")
+            postarr_logger.debug(
+                f"Border Replacerr Payload:\n{json.dumps(sanitize_for_log(border_replacerr_payload), indent=2, default=str)}"
+            )
             border_replacerr = BorderReplacerr(payload=border_replacerr_payload)
             if chained:
+                postarr_logger.debug("Starting border replacerr (chained)")
                 border_replacerr.replace_current_assets(progress_instance, job_id)
                 progress_instance.remove_job(job_id)
                 postarr_logger.info(f"Border Replacer Job: '{job_id}' has been removed")
             else:
-                postarr_logger.debug("Submitting border replacerr task to thread pool")
+                postarr_logger.info("Starting border replacerr")
                 future = executor.submit(
                     border_replacerr.replace_current_assets, progress_instance, job_id
                 )
@@ -501,7 +555,7 @@ def run_border_replacer_task(
             }
 
     except Exception as e:
-        postarr_logger.error(f"Error in Border Replacer Task: {str(e)}")
+        postarr_logger.error(f"Error in Border Replacer Task: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -519,8 +573,9 @@ def handle_unmatched_assets_task(
                     log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
                     unmatched_assets_payload.log_level = log_level
 
-            postarr_logger.debug("Unmatched Assets Payload:")
-            postarr_logger.debug(pformat(unmatched_assets_payload))
+            postarr_logger.debug(
+                f"Unmatched Assets Payload:\n{json.dumps(sanitize_for_log(unmatched_assets_payload), indent=2, default=str)}"
+            )
             job_id = progress_instance.add_job(Settings.UNMATCHED_ASSETS.value)
             postarr_logger.info(f"Job Unmatched Assets: '{job_id}' added.")
             unmatched_assets = UnmatchedAssets(unmatched_assets_payload)
@@ -538,19 +593,19 @@ def handle_unmatched_assets_task(
                     )
 
             if chained:
+                postarr_logger.debug("Starting unmatched assets (chained)")
                 unmatched_assets.run(progress_instance, job_id)
                 progress_instance.remove_job(job_id)
                 postarr_logger.info(
                     f"Unmatched Assets Job: '{job_id}' has been removed"
                 )
             else:
-                postarr_logger.debug("Submitting unmatched assets task to thread pool")
+                postarr_logger.info("Starting unmatched assets")
                 future = executor.submit(
                     unmatched_assets.run,
                     progress_instance,
                     job_id,
                 )
-                postarr_logger.debug("Task submitted successfully")
                 future.add_done_callback(remove_job_cb)
 
             return {
@@ -560,8 +615,7 @@ def handle_unmatched_assets_task(
             }
 
     except Exception as e:
-        postarr_logger.error(f"Error in Unmatched Assets Task: {str(e)}")
-        postarr_logger.error(traceback.format_exc())
+        postarr_logger.error(f"Error in Unmatched Assets Task: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -575,66 +629,70 @@ def handle_plex_uploaderr_task(
     overrides: dict | None = None,
     chained: bool = False,
 ) -> dict:
-    with app.app_context():
-        plex_uploader_payload = webui_utils.create_plex_uploader_payload(
-            radarr, sonarr, plex
-        )
-        if overrides:
-            if "logLevel" in overrides:
-                log_level_str = overrides["logLevel"].upper()
-                log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
-                plex_uploader_payload.log_level = log_level
-            if "reapplyPosters" in overrides:
-                plex_uploader_payload.reapply_posters = overrides["reapplyPosters"]
-
-        postarr_logger.debug("Plex Uploaderr Payload:")
-        postarr_logger.debug(pformat(plex_uploader_payload))
-
-        job_id = progress_instance.add_job(Settings.PLEX_UPLOADERR.value)
-        postarr_logger.info(f"Job Plex Uploaderr: '{job_id}' added.")
-
-        def remove_job_cb(fut):
-            try:
-                fut.result()
-            except Exception as e:
-                postarr_logger.debug(f"Error removing job '{job_id}': {e}")
-            finally:
-                sleep(2)
-                progress_instance.remove_job(job_id)
-                postarr_logger.info(f"Plex uploaderr: '{job_id}' has been removed")
-
-        if webhook_item and media_dict:
-            plex_uploaderr = PlexUploaderr(
-                plex_uploader_payload,
-                webhook_item=webhook_item,
-                media_dict=media_dict,
+    try:
+        with app.app_context():
+            plex_uploader_payload = webui_utils.create_plex_uploader_payload(
+                radarr, sonarr, plex
             )
+            if overrides:
+                if "logLevel" in overrides:
+                    log_level_str = overrides["logLevel"].upper()
+                    log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                    plex_uploader_payload.log_level = log_level
+                if "reapplyPosters" in overrides:
+                    plex_uploader_payload.reapply_posters = overrides["reapplyPosters"]
+
             postarr_logger.debug(
-                "Submitting webhook plex uploaderr task to thread pool"
+                f"Plex Uploaderr Payload:\n{json.dumps(sanitize_for_log(plex_uploader_payload), indent=2, default=str)}"
             )
-            future = executor.submit(plex_uploaderr.upload_posters_webhook, job_id)
-            postarr_logger.debug("Task submitted successfully")
-        else:
-            plex_uploaderr = PlexUploaderr(plex_uploader_payload)
 
-            if chained:
-                plex_uploaderr.upload_posters_full(progress_instance, job_id)
-                progress_instance.remove_job(job_id)
-                postarr_logger.info(f"Plex uploaderr: '{job_id}' has been removed")
-            else:
-                postarr_logger.debug("Submitting plex uploaderr task to thread pool")
-                future = executor.submit(
-                    plex_uploaderr.upload_posters_full,
-                    progress_instance,
-                    job_id,
+            job_id = progress_instance.add_job(Settings.PLEX_UPLOADERR.value)
+            postarr_logger.info(f"Job Plex Uploaderr: '{job_id}' added.")
+
+            def remove_job_cb(fut):
+                try:
+                    fut.result()
+                except Exception as e:
+                    postarr_logger.error(f"Error removing job '{job_id}': {e}")
+                finally:
+                    sleep(2)
+                    progress_instance.remove_job(job_id)
+                    postarr_logger.info(f"Plex uploaderr: '{job_id}' has been removed")
+
+            if webhook_item and media_dict:
+                postarr_logger.info("Starting plex uploaderr (webhook)")
+                plex_uploaderr = PlexUploaderr(
+                    plex_uploader_payload,
+                    webhook_item=webhook_item,
+                    media_dict=media_dict,
                 )
+                future = executor.submit(plex_uploaderr.upload_posters_webhook, job_id)
                 future.add_done_callback(remove_job_cb)
+            else:
+                plex_uploaderr = PlexUploaderr(plex_uploader_payload)
 
-        return {
-            "message": "Plex uploaderr task started",
-            "job_id": job_id,
-            "success": True,
-        }
+                if chained:
+                    postarr_logger.debug("Starting plex uploaderr (chained)")
+                    plex_uploaderr.upload_posters_full(progress_instance, job_id)
+                    progress_instance.remove_job(job_id)
+                    postarr_logger.info(f"Plex uploaderr: '{job_id}' has been removed")
+                else:
+                    postarr_logger.info("Starting plex uploaderr")
+                    future = executor.submit(
+                        plex_uploaderr.upload_posters_full,
+                        progress_instance,
+                        job_id,
+                    )
+                    future.add_done_callback(remove_job_cb)
+
+            return {
+                "message": "Plex uploaderr task started",
+                "job_id": job_id,
+                "success": True,
+            }
+    except Exception as e:
+        postarr_logger.error(f"Error in Plex Uploaderr Task: {e}")
+        return {"success": False, "message": str(e)}
 
 
 def run_unmatched_assets_task(app, overrides: dict | None = None):
@@ -650,6 +708,7 @@ def run_unmatched_assets_task(app, overrides: dict | None = None):
             app, radarr, sonarr, plex, overrides=overrides
         )
     except Exception as e:
+        postarr_logger.error(f"Error in unmatched assets task: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -666,6 +725,7 @@ def run_plex_uploaderr_task(app, overrides: dict | None = None):
             app, plex, radarr, sonarr, overrides=overrides
         )
     except Exception as e:
+        postarr_logger.error(f"Error in plex uploaderr task: {e}")
         return {"success": False, "message": str(e)}
 
 
@@ -674,51 +734,54 @@ def run_drive_sync_task(
 ) -> dict:
     from postarr.views.poster_search.poster_search import reset_cache
 
-    with app.app_context():
-        postarr_logger.info(f"run_drive_sync_task called with chained={chained}")
-        payload = webui_utils.create_drive_sync_payload()
-        if overrides:
-            if "logLevel" in overrides:
-                log_level_str = overrides["logLevel"].upper()
-                log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
-                payload.log_level = log_level
-        postarr_logger.debug("Drive Sync Payload:")
-        postarr_logger.debug(pformat(payload))
-        job_id = progress_instance.add_job(Settings.DRIVE_SYNC.value)
-        postarr_logger.info(f"Job Drive Sync: '{job_id}' added.")
-        drive_sync = DriveSync(payload)
+    try:
+        with app.app_context():
+            drive_sync_payload = webui_utils.create_drive_sync_payload()
+            if overrides:
+                if "logLevel" in overrides:
+                    log_level_str = overrides["logLevel"].upper()
+                    log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
+                    drive_sync_payload.log_level = log_level
+            postarr_logger.debug(
+                f"Drive Sync Payload:\n{json.dumps(sanitize_for_log(drive_sync_payload), indent=2, default=str)}"
+            )
+            job_id = progress_instance.add_job(Settings.DRIVE_SYNC.value)
+            postarr_logger.info(f"Job Drive Sync: '{job_id}' added.")
+            drive_sync = DriveSync(drive_sync_payload)
 
-        def remove_job_cb(fut):
-            try:
-                fut.result()
-                progress_instance(job_id, 100, ProgressState.COMPLETED)
-            except Exception as e:
-                postarr_logger.debug(f"Error removing job '{job_id}': {e}")
-            finally:
-                reset_cache()
-                sleep(2)
-                progress_instance.remove_job(job_id)
-                postarr_logger.info(f"Drive Sync: '{job_id}' has been removed")
+            def remove_job_cb(fut):
+                try:
+                    fut.result()
+                    progress_instance(job_id, 100, ProgressState.COMPLETED)
+                except Exception as e:
+                    postarr_logger.error(f"Error removing job '{job_id}': {e}")
+                finally:
+                    reset_cache()
+                    sleep(2)
+                    progress_instance.remove_job(job_id)
+                    postarr_logger.info(f"Drive Sync: '{job_id}' has been removed")
 
-        if chained:
-            try:
+            if chained:
+                postarr_logger.debug("Starting drive sync (chained)")
                 drive_sync.sync_all_drives(progress_instance, job_id)
                 reset_cache()
                 progress_instance.remove_job(job_id)
                 postarr_logger.info(f"Drive Sync: '{job_id}' has been removed")
-            except Exception as e:
-                postarr_logger.error(f"Drive sync failed: {e}")
-        else:
-            future = executor.submit(
-                drive_sync.sync_all_drives, progress_instance, job_id
-            )
-            future.add_done_callback(remove_job_cb)
+            else:
+                postarr_logger.info("Starting drive sync")
+                future = executor.submit(
+                    drive_sync.sync_all_drives, progress_instance, job_id
+                )
+                future.add_done_callback(remove_job_cb)
 
-        return {
-            "message": "Drive Sync task started",
-            "job_id": job_id,
-            "success": True,
-        }
+            return {
+                "message": "Drive Sync task started",
+                "job_id": job_id,
+                "success": True,
+            }
+    except Exception as e:
+        postarr_logger.error(f"Error in Drive Sync Task: {e}")
+        return {"success": False, "message": str(e)}
 
 
 app = create_app()

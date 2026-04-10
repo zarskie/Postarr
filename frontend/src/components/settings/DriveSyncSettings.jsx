@@ -483,6 +483,7 @@ const DriveSyncSettings = ({ onDirtyChange }) => {
             >
               <option value="info">Info</option>
               <option value="debug">Debug</option>
+              <option value="trace">Trace</option>
             </select>
             <ChevronDown
               size={18}

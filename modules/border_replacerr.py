@@ -7,14 +7,14 @@ from PIL import Image
 from modules.database_cache import Database
 from modules.logger import init_logger
 from modules.settings import Settings
-from modules.utils import hash_file
+from modules.utils import hash_file, log_banner
 from progress import ProgressState
 
 
 class BorderReplacerr:
     def __init__(self, custom_color=None, payload=None) -> None:
         if payload:
-            self.logger = logging.getLogger("BorderReplacerr")
+            self.logger = logging.getLogger(Settings.BORDER_REPLACERR.value)
             try:
                 log_dir = Path(Settings.LOG_DIR.value) / Settings.BORDER_REPLACERR.value
                 init_logger(
@@ -31,15 +31,11 @@ class BorderReplacerr:
                 self.asset_folders = payload.asset_folders
 
             except Exception as e:
-                self.logger.exception("Failed to initialize BorderReplacerr")
+                self.logger.exception("Failed to initialize border replacerr")
                 raise e
         else:
+            # used by PosterRenamerr for image processing only — logger not available
             self.custom_color = custom_color
-
-    def _log_banner(self, job_id):
-        self.logger.info("\n" + "#" * 80)
-        self.logger.info(f"### New BorderReplacerr Run -- Job ID: '{job_id}'")
-        self.logger.info("\n" + "#" * 80)
 
     def remove_border(self, image_path: Path):
         image = Image.open(image_path)
@@ -47,7 +43,7 @@ class BorderReplacerr:
         crop_area = (26, 26, width - 26, height)
 
         final_image = image.crop(crop_area)
-        bottom_border = Image.new("RGB", (width - 2 * 26, 26), color="black")
+        bottom_border = Image.new("RGB", (width - 2 * 26, 26), color="black")  # type: ignore[arg-type]
         bottom_border_position = (0, final_image.size[1] - 26)
         final_image.paste(bottom_border, bottom_border_position)
         final_image = final_image.resize((1000, 1500)).convert("RGB")
@@ -73,7 +69,7 @@ class BorderReplacerr:
         job_id: str | None = None,
     ):
         try:
-            self._log_banner(job_id)
+            log_banner(self.logger, Settings.BORDER_REPLACERR.value, job_id)
             original_poster_paths = [
                 poster for poster in self.backup_path.rglob("*") if poster.is_file()
             ]
@@ -89,10 +85,12 @@ class BorderReplacerr:
 
                     if self.border_setting == "remove":
                         new_image = self.remove_border(poster)
-                        self.logger.debug(f"Removed border for: {poster}")
+                        if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                            self.logger.trace(f"Removed border for: {poster}")  # type: ignore[attr-defined]
                     elif self.border_setting in ["custom", "black"]:
                         new_image = self.replace_border(poster)
-                        self.logger.debug(f"Replaced border for: {poster}")
+                        if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                            self.logger.trace(f"Replaced border for: {poster}")  # type: ignore[attr-defined]
                     else:
                         self.logger.warning(
                             f"Unsupported border setting '{self.border_setting}' for: {poster}"
@@ -100,7 +98,8 @@ class BorderReplacerr:
                         continue
 
                     new_image.save(target_path)
-                    self.logger.debug(f"Updated asset saved: {target_path}")
+                    if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                        self.logger.trace(f"Updated asset saved: {target_path}")  # type: ignore[attr-defined]
 
                     file_hash = hash_file(target_path, self.logger)
                     self.db.update_border_replaced_hash(
@@ -115,7 +114,7 @@ class BorderReplacerr:
                         cb(job_id, progress, ProgressState.IN_PROGRESS)
                 except Exception as e:
                     self.logger.error(f"Error processing file '{poster}': {e}")
-            self.logger.info("All assets have been updated successfully")
+            self.logger.info(f"Border replacerr complete — {total} asset(s) processed")
             if job_id and cb:
                 cb(job_id, 100, ProgressState.COMPLETED)
         except Exception as e:

@@ -1,10 +1,11 @@
 import json
 import os
+from typing import Any
 
 import requests
 from flask import Blueprint, jsonify, request
 
-from postarr import db, models
+from postarr import db, models, postarr_logger
 from postarr.models.schedule import Schedule
 
 settings = Blueprint("settings", __name__)
@@ -296,6 +297,7 @@ def update_instance():
                 {"success": False, "message": "Missing required fields"}
             ), 400
 
+        model: Any  # type: ignore[assignment]
         if instance_type == "radarr":
             model = models.RadarrInstance
         elif instance_type == "sonarr":
@@ -310,7 +312,8 @@ def update_instance():
             return jsonify({"success": False, "message": "Instance not found"}), 404
 
         if model.query.filter(
-            model.instance_name == instance_name, model.id != instance_id
+            model.instance_name == instance_name,
+            model.id != instance_id,
         ).first():
             return jsonify(
                 {
@@ -328,7 +331,8 @@ def update_instance():
         if (
             api_key
             and model.query.filter(
-                model.api_key == api_key, model.id != instance_id
+                model.api_key == api_key,
+                model.id != instance_id,
             ).first()
         ):
             return jsonify(
@@ -501,9 +505,11 @@ def delete_schedule(module_name):
 
         db.session.delete(schedule)
         db.session.commit()
+        postarr_logger.info(f"Deleted schedule for {module_name}")
         reload_scheduler()
         return jsonify({"success": True, "message": "Schedule successfully deleted"})
     except Exception as e:
+        postarr_logger.debug(f"Error removing schedule for {module_name}")
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
 

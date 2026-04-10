@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import os
 
@@ -13,8 +14,59 @@ LOG_LEVELS = {
     "WARNING": logging.WARNING,
     "INFO": logging.INFO,
     "DEBUG": logging.DEBUG,
+    "TRACE": logging.TRACE,  # type: ignore[attr-defined]
     "NOTSET": logging.NOTSET,
 }
+
+SENSITIVE_KEYS = {"api", "client_id", "oauth_token", "client_secret", "service_account"}
+
+
+def sanitize_for_log(obj) -> dict:
+    if isinstance(obj, dict):
+        d = obj
+    elif dataclasses.is_dataclass(obj):
+        d = {f.name: getattr(obj, f.name) for f in dataclasses.fields(obj)}
+    elif hasattr(obj, "__dict__"):
+        d = obj.__dict__
+    else:
+        return {"error": f"Cannot serialize {type(obj)}"}
+
+    result = {}
+    for k, v in d.items():
+        if any(s in k.lower() for s in SENSITIVE_KEYS):
+            result[k] = "***"
+        elif isinstance(v, dict):
+            result[k] = {
+                inst: {
+                    ik: "***" if any(s in ik.lower() for s in SENSITIVE_KEYS) else iv
+                    for ik, iv in inst_data.items()
+                }
+                for inst, inst_data in v.items()
+            }
+        else:
+            result[k] = v
+    return result
+
+
+def sanitize_command_for_log(command: list[str]) -> list[str]:
+    sensitive_flags = {
+        "--drive-token",
+        "--drive-client-secret",
+        "--drive-client-id",
+        "--drive-service-account-file",
+    }
+    result = []
+    skip_next = False
+    for arg in command:
+        if skip_next:
+            result.append("***")
+            skip_next = False
+        elif arg in sensitive_flags:
+            result.append(arg)
+            skip_next = True
+        else:
+            result.append(arg)
+    return result
 
 
 def get_instances(model) -> dict[str, dict[str, str]]:
@@ -94,7 +146,7 @@ def create_unmatched_assets_payload(radarr, sonarr, plex) -> UnmatchedAssetsPayl
         log_level=log_level,
         target_path=settings.target_path if settings else "",
         asset_folders=bool(settings.asset_folders) if settings else False,
-        show_all_unmatched=settings.show_all_unmatched if settings else False,
+        show_all_unmatched=bool(settings.show_all_unmatched) if settings else False,
         library_names=settings.library_names.split(",")
         if settings and settings.library_names
         else [],
@@ -130,6 +182,9 @@ def create_plex_uploader_payload(radarr, sonarr, plex) -> PlexUploaderPayload:
         plex=plex,
         radarr=radarr,
         sonarr=sonarr,
+        webhook_initial_delay=int(os.environ.get("WEBHOOK_INITIAL_DELAY") or 0),
+        webhook_retry_delay=int(os.environ.get("WEBHOOK_RETRY_DELAY") or 30),
+        webhook_max_retries=int(os.environ.get("WEBHOOK_MAX_RETRIES") or 10),
     )
 
 

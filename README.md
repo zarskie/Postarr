@@ -79,10 +79,15 @@ The following environment variables can be used:
 
 | Variable                               | Description                                              | Default                                  |
 |----------------------------------------|----------------------------------------------------------|------------------------------------------|
-| `MAIN_LOG_LEVEL`                       | Web UI Log Level                                         | `INFO`                                   |
-| `TIME_FORMAT`                          | Time format (12/24)                                      | `12`                                     |
-| `PUID`                                 | User to run as                                           | `1000`                                   |
-| `PGID`                                 | Group to run as                                          | `1000`                                   |
+| `MAIN_LOG_LEVEL`                       | Web UI Log Level                                                           | `INFO`                 |
+| `TIME_FORMAT`                          | Time format (12/24)                                                        | `12`                   |
+| `PUID`                                 | User to run as                                                             | `1000`                 |
+| `PGID`                                 | Group to run as                                                            | `1000`                 |
+| `MAX_LOG_SIZE_MB`                      | Max log size (mb)                                                          | `25`                   |
+| `MAX_BACKUP_FILES`                     | Max number of rotating logs                                                | `10`                   |
+| `WEBHOOK_INITIAL_DELAY`                | Initial delay (seconds) before searching plex on webhook run               | `0`                    |
+| `WEBHOOK_RETRY_DELAY`                  | Delay (seconds) between each retry when searching for recently added items | `30`                   |
+| `WEBHOOK_MAX_RETRIES`                  | Maximum number of search attempts before giving up                         | `10`                   |
 
 ## Community
 For support, join the friendly Trash Guides Community [TRaSH-Guides Discord](https://trash-guides.info/discord) and look for **Postarr** under community apps.

@@ -3,6 +3,20 @@ import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from postarr.config.config import Config
+
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+logging.TRACE = TRACE  # type: ignore[attr-defined]
+
+
+def trace(self, message, *args, **kwargs):
+    if self.isEnabledFor(TRACE):
+        self._log(TRACE, message, args, **kwargs)
+
+
+logging.Logger.trace = trace  # type: ignore[attr-defined]
+
 
 def init_logger(
     lgr: logging.Logger, log_dir: Path, file_name: str, log_level: int = 20
@@ -14,6 +28,7 @@ def init_logger(
     WARNING 30
     INFO 20
     DEBUG 10
+    TRACE 5
     NOTSET 0
     """
     # ensure all parents exist
@@ -34,35 +49,26 @@ def init_logger(
 
     # format the logger
     formatter = logging.Formatter(
-        "[%(name)s][%(threadName)s][%(asctime)s][%(levelname)s] = %(message)s"
+        "%(asctime)s %(levelname)-8s %(name)-18s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    if log_level == logging.DEBUG:
+    if log_level == TRACE:
+        file_name = f"{file_name}_trace.log"
+    elif log_level == logging.DEBUG:
         file_name = f"{file_name}_debug.log"
     else:
         file_name = f"{file_name}.log"
 
     file_path = log_dir / file_name
 
-    max_bytes_multiplier = float(os.environ.get("LOGGER_MAX_BYTES_MULTIPLIER", 1))
-    if max_bytes_multiplier and isinstance(max_bytes_multiplier, (int, float, complex)):
-        if max_bytes_multiplier <= 0:
-            max_bytes_multiplier = 1
-    else:
-        max_bytes_multiplier = 1
-
-    max_backup_files = int(os.environ.get("LOGGER_MAX_BACKUP_FILES", 10))
-    if max_backup_files and isinstance(max_backup_files, (int, float, complex)):
-        if max_backup_files < 10:
-            max_backup_files = 10  # minimum of 10
-    else:
-        max_backup_files = 10
+    max_backup_files = max(int(os.environ.get("MAX_BACKUP_FILES", 10)), 1)
 
     # Configure RotatingFileHandler for the logger
     file_handler = RotatingFileHandler(
         file_path,
         mode="a",
-        maxBytes=10 * 1024 * 1024 * max_bytes_multiplier,
+        maxBytes=int(os.environ.get("MAX_LOG_SIZE_MB", 25)) * 1024 * 1024,
         backupCount=max_backup_files,
     )
     file_handler.setLevel(log_level)
@@ -76,3 +82,13 @@ def init_logger(
     lgr.addHandler(stream_handler)
 
     return lgr
+
+
+def get_postarr_logger():
+    global_config = Config()
+    logger = logging.getLogger("postarr")
+    if not logger.hasHandlers():
+        log_level_str = getattr(global_config, "MAIN_LOG_LEVEL", "INFO")
+        log_level = getattr(logging, log_level_str, logging.INFO)
+        init_logger(logger, global_config.logs / "web-ui", "web_ui", log_level)
+    return logger

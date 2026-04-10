@@ -11,3 +11,6 @@ class Payload:
     plex: dict[str, dict[str, str]]
     radarr: dict[str, dict[str, str]]
     sonarr: dict[str, dict[str, str]]
+    webhook_initial_delay: int = 0
+    webhook_retry_delay: int = 30
+    webhook_max_retries: int = 10
