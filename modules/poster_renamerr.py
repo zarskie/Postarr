@@ -815,7 +815,7 @@ class PosterRenamerr:
 
         if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
             self.logger.trace(  # type: ignore[attr-defined]
-                "### Matched files dump ###\n%s",
+                "Matched files dump:\n%s",
                 json.dumps(
                     utils.normalize(matched_files), indent=2, ensure_ascii=False
                 ),
@@ -823,7 +823,7 @@ class PosterRenamerr:
         if matched_files["dups"]:
             dup_rows = [[file, match] for file, match in matched_files["dups"].items()]
             self.logger.debug(
-                "\n### Duplicate Asset Matches ###\n%s",
+                "Duplicate Asset Matches:\n%s",
                 tabulate(dup_rows, headers=["File", "Match"], tablefmt="simple"),
             )
             matched_files["dups"] = None
@@ -1439,6 +1439,7 @@ class PosterRenamerr:
         tmdb_id: str | None = None,
         tvdb_id: str | None = None,
     ) -> bool:
+        trace = self.logger.trace  # type: ignore[attr-defined]
         temp_path = None
         copied = False
         target_path = target_dir / new_file_name
@@ -1468,24 +1469,24 @@ class PosterRenamerr:
             cached_tvdb_id = cached_file.get("tvdb_id", None)
 
             # Debugging: Log the current and cached values for comparison
-            self.logger.debug(f"Checking skip conditions for file: {file_path}")
-            self.logger.debug(f"File name: {file_name_without_extension}")
-            self.logger.debug(f"Original file hash: {original_file_hash}")
-            self.logger.debug(f"Cached hash: {cached_hash}")
-            self.logger.debug(f"Cached original hash: {cached_original_hash}")
-            self.logger.debug(f"Current source: {current_source}")
-            self.logger.debug(f"Cached source: {cached_source}")
-            self.logger.debug(f"Replace border (current): {replace_border}")
-            self.logger.debug(f"Cached border replaced: {bool(cached_border_state)}")
-            self.logger.debug(f"Current border setting: {self.border_setting}")
-            self.logger.debug(f"Cached custom color: {cached_custom_color}")
-            self.logger.debug(f"Current custom color: {self.custom_color}")
-            self.logger.debug(f"Cached status: {cached_status}")
-            self.logger.debug(f"Current status: {status}")
-            self.logger.debug(f"Cached has_episodes: {cached_has_episodes}")
-            self.logger.debug(f"Current has_episodes: {has_episodes}")
-            self.logger.debug(f"Cached has_file: {cached_has_file}")
-            self.logger.debug(f"Current has_file: {has_file}")
+            trace(f"Checking skip conditions for file: {file_path}")
+            trace(f"File name: {file_name_without_extension}")
+            trace(f"Original file hash: {original_file_hash}")
+            trace(f"Cached hash: {cached_hash}")
+            trace(f"Cached original hash: {cached_original_hash}")
+            trace(f"Current source: {current_source}")
+            trace(f"Cached source: {cached_source}")
+            trace(f"Replace border (current): {replace_border}")
+            trace(f"Cached border replaced: {bool(cached_border_state)}")
+            trace(f"Current border setting: {self.border_setting}")
+            trace(f"Cached custom color: {cached_custom_color}")
+            trace(f"Current custom color: {self.custom_color}")
+            trace(f"Cached status: {cached_status}")
+            trace(f"Current status: {status}")
+            trace(f"Cached has_episodes: {bool(cached_has_episodes)}")
+            trace(f"Current has_episodes: {has_episodes}")
+            trace(f"Cached has_file: {bool(cached_has_file)}")
+            trace(f"Current has_file: {has_file}")
 
             if cached_has_episodes is None or cached_has_episodes != has_episodes:
                 if has_episodes is not None:
@@ -1556,20 +1557,18 @@ class PosterRenamerr:
         try:
             if not backup_path.exists():
                 shutil.copy2(file_path, backup_path)
-                self.logger.debug(
+                trace(
                     f"Created backup of file {file_path} in {backup_dir}: {file_path}"
                 )
             else:
                 backed_up_hash = utils.hash_file(backup_path, self.logger)
                 if original_file_hash != backed_up_hash:
                     shutil.copy2(file_path, backup_path)
-                    self.logger.debug(
+                    trace(
                         f"Updated backup at {backup_path}. Previous hash: {backed_up_hash}, New hash: {original_file_hash}"
                     )
                 else:
-                    self.logger.debug(
-                        "Backup hash matches original file hash, no update needed"
-                    )
+                    trace("Backup hash matches original file hash, no update needed")
         except Exception as e:
             self.logger.error(f"Error copying backup file {file_path}: {e}")
 
@@ -1895,8 +1894,8 @@ class PosterRenamerr:
             media_dict = {}
             collections_dict = {}
             utils.log_banner(self.logger, Settings.POSTER_RENAMERR.value, job_id)
-            self.logger.info(f"Replace border: {bool(self.replace_border)}")
-            self.logger.info(f"Asset folder configuration: {bool(self.asset_folders)}")
+            self.logger.debug(f"Replace border: {bool(self.replace_border)}")
+            self.logger.debug(f"Asset folder configuration: {bool(self.asset_folders)}")
             if single_item:
                 self.logger.info("Run triggered for a single item via webhook")
                 asset_type = single_item.get("type", "")
@@ -1918,13 +1917,13 @@ class PosterRenamerr:
             else:
                 if self.only_unmatched and not single_item:
                     self.logger.debug(
-                        "### Creating media and collections dictionary of only unmatched items in library ###"
+                        "Creating media and collections dictionary of only unmatched items in library"
                     )
                     unmatched_media_dict = self.get_unmatched_media_dict()
                     unmatched_collections_dict = self.get_unmatched_collections_dict()
                 else:
                     self.logger.debug(
-                        "### Creating media and collections dictionary of all items in library ###"
+                        "Creating media and collections dictionary of all items in library"
                     )
 
                 media_dict = utils.get_combined_media_dict(
@@ -1949,7 +1948,7 @@ class PosterRenamerr:
                 effective_collections_dict.values()
             ):
                 self.logger.warning(
-                    "Media and collections dictionaries are empty. Skipping processing."
+                    "Media and collections dictionaries are empty. Skipping processing"
                 )
                 if self.clean_assets:
                     self.clean_asset_dir(media_dict, collections_dict)
@@ -1974,7 +1973,7 @@ class PosterRenamerr:
 
             if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
                 self.logger.trace(  # type: ignore[attr-defined]
-                    "### Media files dump ###\n%s",
+                    "Media files dump:\n%s",
                     json.dumps(
                         {
                             "media": utils.normalize(effective_media_dict),
@@ -1987,9 +1986,9 @@ class PosterRenamerr:
 
             if job_id and cb:
                 cb(job_id, 10, ProgressState.IN_PROGRESS)
-            self.logger.debug("### Scanning source files ###")
+            self.logger.debug("Scanning source files")
             source_files = self.get_source_files()
-            self.logger.debug("### Matching files with media ###")
+            self.logger.debug("Matching files with media")
             matched_files = self.match_files_with_media(
                 source_files,
                 effective_media_dict,
@@ -1997,7 +1996,7 @@ class PosterRenamerr:
                 cb,
                 job_id,
             )
-            self.logger.debug("### File Copy + Rename Stage ###")
+            self.logger.debug("Copying and renaming files")
             self.copy_rename_files(
                 matched_files,
                 cb,
@@ -2005,7 +2004,7 @@ class PosterRenamerr:
                 webhook_run=bool(single_item),
             )
 
-            self.logger.debug("### Cleanup Stage ###")
+            self.logger.debug("Cleaning orphaned items")
             if self.clean_assets and not single_item:
                 self.clean_asset_dir(media_dict, collections_dict)
             self.clean_cache()

@@ -974,7 +974,11 @@ class Database:
             raise
 
     def add_unmatched_season(
-        self, show_id: int, season: str, is_missing: bool = False
+        self,
+        show_id: int,
+        season: str,
+        is_missing: bool = False,
+        show_title: str | None = None,
     ) -> None:
         try:
             with self.get_db_connection() as conn:
@@ -993,7 +997,11 @@ class Database:
                             (show_id, season, int(is_missing)),
                         )
                         self.logger.debug(
-                            f"Added unmatched season: show_id={show_id} season={season} is_missing={is_missing}"
+                            "Added unmatched season: show='%s' (id=%s) season=%s is_missing=%s",
+                            show_title or show_id,
+                            show_id,
+                            season,
+                            is_missing,
                         )
                     else:
                         season_id, existing_is_missing = existing
@@ -1003,11 +1011,15 @@ class Database:
                                 (int(is_missing), season_id),
                             )
                             self.logger.debug(
-                                f"Updated unmatched season: show_id={show_id} season={season} is_missing={is_missing}"
+                                "Updated unmatched season: show='%s' (id=%s) season=%s is_missing=%s",
+                                show_title or show_id,
+                                show_id,
+                                season,
+                                is_missing,
                             )
                 conn.commit()
         except Exception as e:
-            self.logger.error(f"Error adding unmatched season: {e}")
+            self.logger.error("Error adding unmatched season: %s", e, exc_info=True)
 
     def get_unmatched_assets(self, db_table: str) -> list[dict[str, str]]:
         with self.get_db_connection() as conn:

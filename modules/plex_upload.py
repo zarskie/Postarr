@@ -636,6 +636,7 @@ class PlexUploaderr:
         self.upload_stats = {}
 
         utils.log_banner(self.logger, Settings.PLEX_UPLOADERR.value, job_id)
+        self.logger.debug("Asset folder configuration: %s", self.asset_folders)
         if self.reapply_posters:
             self.db.clear_uploaded_to_libraries_and_editions()
             self.logger.info(
@@ -844,6 +845,7 @@ class PlexUploaderr:
         utils.log_banner(
             self.logger, Settings.PLEX_UPLOADERR.value + " (webhook)", job_id
         )
+        self.logger.debug("Asset folder configuration: %s", self.asset_folders)
         if self.reapply_posters:
             self.db.clear_uploaded_to_libraries_and_editions(webhook_run=True)
             self.logger.debug(

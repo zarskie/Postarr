@@ -201,7 +201,7 @@ class UnmatchedAssets:
                                 )
                         if show_id is None:
                             self.logger.error(
-                                f"Failed to assign a valid show_id for {show_title}"
+                                "Failed to assign a valid show_id for '%s'", show_title
                             )
                             continue
 
@@ -209,6 +209,7 @@ class UnmatchedAssets:
                             show_id=show_id,
                             season=season["season"],
                             is_missing=not season_has_episodes,
+                            show_title=show_title,
                         )
                         if show_all_unmatched or season_has_episodes:
                             unmatched_show["seasons"].append(season["season"])
@@ -229,6 +230,7 @@ class UnmatchedAssets:
                             show_id=show_id,
                             season=season["season"],
                             is_missing=not season_has_episodes,
+                            show_title=show_title,
                         )
                         if show_all_unmatched or season_has_episodes:
                             unmatched_show["seasons"].append(season["season"])
@@ -479,6 +481,7 @@ class UnmatchedAssets:
 
         try:
             utils.log_banner(self.logger, Settings.UNMATCHED_ASSETS.value, job_id)
+            self.logger.debug("Asset folder configuration: %s", self.asset_folders)
             self.db.cleanup_orphaned_seasons()
             if job_id and cb:
                 cb(job_id, 20, ProgressState.IN_PROGRESS)
