@@ -558,7 +558,7 @@ def recieve_webhook():
             database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "No data received"}), 400
-        postarr_logger.debug(
+        postarr_logger.trace(  # type: ignore[attr-defined]
             "Webhook data:\n%s", json.dumps(data, indent=2, ensure_ascii=True)
         )
 
@@ -647,8 +647,8 @@ def recieve_webhook():
             "item_path": item_path,
         }
 
-        postarr_logger.debug(
-            "New item:\n%s", json.dumps(new_item, indent=2, ensure_ascii=True)
+        postarr_logger.trace(  # type: ignore[attr-defined]
+            "New item:\n%s", json.dumps(new_item, indent=2)
         )
 
         is_duplicate = webhook_manager.is_duplicate_webhook(new_item)

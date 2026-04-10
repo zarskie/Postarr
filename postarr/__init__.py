@@ -453,7 +453,7 @@ def run_renamer_task(
                     )
                 else:
                     postarr_logger.info("Starting poster renamerr")
-                    postarr_logger.debug(
+                    postarr_logger.trace(  # type: ignore[attr-defined]
                         f"Poster Renamerr Payload:\n{json.dumps(sanitize_for_log(poster_renamer_payload), indent=2, default=str)}"
                     )
                     renamer_future = executor.submit(
@@ -532,7 +532,7 @@ def run_border_replacer_task(
 
             job_id = progress_instance.add_job(Settings.BORDER_REPLACERR.value)
             postarr_logger.info(f"Job Border Replacerr: '{job_id}' added.")
-            postarr_logger.debug(
+            postarr_logger.trace(  # type: ignore[attr-defined]
                 f"Border Replacerr Payload:\n{json.dumps(sanitize_for_log(border_replacerr_payload), indent=2, default=str)}"
             )
             border_replacerr = BorderReplacerr(payload=border_replacerr_payload)
@@ -573,11 +573,11 @@ def handle_unmatched_assets_task(
                     log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
                     unmatched_assets_payload.log_level = log_level
 
-            postarr_logger.debug(
-                f"Unmatched Assets Payload:\n{json.dumps(sanitize_for_log(unmatched_assets_payload), indent=2, default=str)}"
-            )
             job_id = progress_instance.add_job(Settings.UNMATCHED_ASSETS.value)
             postarr_logger.info(f"Job Unmatched Assets: '{job_id}' added.")
+            postarr_logger.trace(  # type: ignore[attr-defined]
+                f"Unmatched Assets Payload:\n{json.dumps(sanitize_for_log(unmatched_assets_payload), indent=2, default=str)}"
+            )
             unmatched_assets = UnmatchedAssets(unmatched_assets_payload)
 
             def remove_job_cb(fut):
@@ -642,12 +642,11 @@ def handle_plex_uploaderr_task(
                 if "reapplyPosters" in overrides:
                     plex_uploader_payload.reapply_posters = overrides["reapplyPosters"]
 
-            postarr_logger.debug(
-                f"Plex Uploaderr Payload:\n{json.dumps(sanitize_for_log(plex_uploader_payload), indent=2, default=str)}"
-            )
-
             job_id = progress_instance.add_job(Settings.PLEX_UPLOADERR.value)
             postarr_logger.info(f"Job Plex Uploaderr: '{job_id}' added.")
+            postarr_logger.trace(  # type: ignore[attr-defined]
+                f"Plex Uploaderr Payload:\n{json.dumps(sanitize_for_log(plex_uploader_payload), indent=2, default=str)}"
+            )
 
             def remove_job_cb(fut):
                 try:
@@ -760,11 +759,11 @@ def run_drive_sync_task(
                     "message": "Drive sync credentials not configured",
                 }
 
-            postarr_logger.debug(
-                f"Drive Sync Payload:\n{json.dumps(sanitize_for_log(drive_sync_payload), indent=2, default=str)}"
-            )
             job_id = progress_instance.add_job(Settings.DRIVE_SYNC.value)
             postarr_logger.info(f"Job Drive Sync: '{job_id}' added.")
+            postarr_logger.trace(  # type: ignore[attr-defined]
+                f"Drive Sync Payload:\n{json.dumps(sanitize_for_log(drive_sync_payload), indent=2, default=str)}"
+            )
             drive_sync = DriveSync(drive_sync_payload)
 
             def remove_job_cb(fut):
