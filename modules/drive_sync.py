@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -13,16 +14,16 @@ from progress import ProgressState
 
 
 class DriveSync:
-    RCLONE_IMPORTANT = (
+    RCLONE_INFO = (
         "Transferred:",
         "Transferring:",
         " * ",
         "Errors:",
         "Checks:",
         "Elapsed time:",
-        "ERROR",
         "NOTICE",
     )
+    RCLONE_ERROR = ("ERROR",)
 
     def __init__(self, payload):
         self.logger = logging.getLogger(Settings.DRIVE_SYNC.value)
@@ -40,8 +41,8 @@ class DriveSync:
             self.service_account = payload.service_account
             self.gdrives = payload.gdrives
         except Exception as e:
-            self.logger.exception("Failed to initialize DriveSync")
-            raise e
+            self.logger.error("Failed to initialize drive sync %s", e, exc_info=True)
+            raise
 
     def remote_exists(self, remote_name: str) -> bool:
         try:
@@ -50,13 +51,13 @@ class DriveSync:
             )
             exists = f"{remote_name}:" in result.stdout
             if exists:
-                self.logger.debug(
-                    f"Remote '{remote_name}' already exists. Skipping creation."
+                self.logger.trace(  # type: ignore[attr-defined]
+                    "Remote '%s' already exists, skipping creation", remote_name
                 )
 
             return exists
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Error checking remotes: {e.stderr}")
+            self.logger.error("Error checking remotes: %s", e.stderr)
             return False
 
     def create_remote(self):
@@ -75,9 +76,9 @@ class DriveSync:
                 ],
                 check=True,
             )
-            self.logger.info(f"Remote '{remote_name}' created successfully.")
+            self.logger.info("Remote '%s' created successfully", remote_name)
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to create remote '{remote_name}': {e.stderr}")
+            self.logger.error("Failed to create remote '%s': %s", remote_name, e.stderr)
 
     def tail_log(self, log_path, drive_name, stop_event):
         while not stop_event.is_set() and not os.path.exists(log_path):
@@ -90,8 +91,10 @@ class DriveSync:
                 line = f.readline()
                 if line:
                     line = line.strip()
-                    if any(key in line for key in self.RCLONE_IMPORTANT):
-                        self.logger.info(f"[{drive_name}] {line}")
+                    if any(key in line for key in self.RCLONE_ERROR):
+                        self.logger.error("[%s] %s", drive_name, line)
+                    elif any(key in line for key in self.RCLONE_INFO):
+                        self.logger.info("[%s] %s", drive_name, line)
                 else:
                     stop_event.wait(0.5)
 
@@ -126,7 +129,14 @@ class DriveSync:
                     os.remove(rclone_rotated_log_path)
                 os.rename(rclone_log_path, rclone_rotated_log_path)
             except Exception as e:
-                self.logger.error(f"Problem rotating rclone log file: {e}")
+                self.logger.error(
+                    "Problem rotating rclone log file: %s", e, exc_info=True
+                )
+
+        self.logger.trace(  # type: ignore[attr-defined]
+            "Trace logging enabled, rclone log at: %s", rclone_log_path
+        )
+        self.logger.trace("Gdrive dump:%s\n", json.dumps(self.gdrives, indent=2))  # type: ignore[attr-defined]
 
         for drive in self.gdrives:
             drive_name = drive["drive_name"]
@@ -136,14 +146,17 @@ class DriveSync:
             if (
                 self.client_id and self.client_secret and self.oauth_token
             ) and not self.service_account:
-                self.logger.debug(f"Attempting OAuth authentication for '{drive_name}'")
+                self.logger.debug(
+                    "Attempting OAuth authentication for '%s'", drive_name
+                )
+
             elif self.service_account:
                 self.logger.debug(
-                    f"Attempting Service Account authentication for '{drive_name}'"
+                    "Attempting Service Account authentication for '%s'", drive_name
                 )
             else:
                 self.logger.warning(
-                    f"No authentication provided for '{drive_name}'. Skipping"
+                    "No authentication provided for '%s', skipping", drive_name
                 )
                 current_progress += progress_step
                 if cb and job_id:
@@ -154,7 +167,9 @@ class DriveSync:
                     )
                 continue
 
-            self.logger.info(f"Starting sync for: '{drive_name}' ⟶ '{drive_location}'")
+            self.logger.info(
+                "Starting sync for: '%s' ⟶ '%s'", drive_name, drive_location
+            )
             rclone_command = [
                 "rclone",
                 "sync",
@@ -176,9 +191,6 @@ class DriveSync:
 
             if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
                 rclone_command.append("-vvv")
-                self.logger.trace(  # type: ignore[attr-defined]
-                    f"Trace logging enabled, rclone log at: {rclone_log_path}"
-                )
             elif self.logger.isEnabledFor(logging.DEBUG):
                 rclone_command.append("-vv")
             else:
@@ -202,8 +214,9 @@ class DriveSync:
                 rclone_command.extend(
                     ["--drive-service-account-file", self.service_account]
                 )
-            self.logger.debug(
-                f"Rclone command:\n{' '.join(sanitize_command_for_log(rclone_command))}"
+            self.logger.trace(  # type: ignore[attr-defined]
+                "Rclone command: '%s'",
+                " ".join(sanitize_command_for_log(rclone_command)),
             )
             stop_event = threading.Event()
             tail_thread = threading.Thread(
@@ -224,7 +237,7 @@ class DriveSync:
                 process.wait()
 
                 if process.returncode == 0:
-                    self.logger.info(f"Sync completed for drive: {drive_name}")
+                    self.logger.info("Sync completed for drive: '%s'", drive_name)
                     current_progress += progress_step
                     if cb and job_id:
                         cb(
@@ -234,7 +247,9 @@ class DriveSync:
                         )
                 else:
                     self.logger.error(
-                        f"Sync failed for drive name: '{drive_name}' with return code {process.returncode}"
+                        "Sync failed for drive name: '%s' with return code %s",
+                        drive_name,
+                        process.returncode,
                     )
                     current_progress += progress_step
                     if cb and job_id:
@@ -245,7 +260,9 @@ class DriveSync:
                         )
 
             except Exception as e:
-                self.logger.error(f"Sync failed for drive '{drive_name}': {e}")
+                self.logger.error(
+                    "Sync failed for drive '%s': %s", drive_name, e, exc_info=True
+                )
                 current_progress += progress_step
                 if cb and job_id:
                     cb(
@@ -258,7 +275,9 @@ class DriveSync:
                 tail_thread.join()
 
         self.logger.info(
-            f"Finished syncing {total_drives} drive(s), full rclone log available at: {rclone_log_path}"
+            "Finished syncing %s drive(s), full rclone log available at: %s",
+            total_drives,
+            rclone_log_path,
         )
         if cb and job_id:
             cb(job_id, 99, ProgressState.IN_PROGRESS)

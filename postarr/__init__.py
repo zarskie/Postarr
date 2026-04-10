@@ -742,6 +742,24 @@ def run_drive_sync_task(
                     log_level_str = overrides["logLevel"].upper()
                     log_level = LOG_LEVELS.get(log_level_str, logging.INFO)
                     drive_sync_payload.log_level = log_level
+            has_oauth = all(
+                [
+                    drive_sync_payload.client_id,
+                    drive_sync_payload.oauth_token,
+                    drive_sync_payload.client_secret,
+                ]
+            )
+            has_service_account = bool(drive_sync_payload.service_account)
+            if not has_oauth and not has_service_account:
+                postarr_logger.error(
+                    "Drive sync requires either OAuth credentials (client_id, client_secret, oauth_token) "
+                    "or a service account — neither is configured"
+                )
+                return {
+                    "success": False,
+                    "message": "Drive sync credentials not configured",
+                }
+
             postarr_logger.debug(
                 f"Drive Sync Payload:\n{json.dumps(sanitize_for_log(drive_sync_payload), indent=2, default=str)}"
             )
