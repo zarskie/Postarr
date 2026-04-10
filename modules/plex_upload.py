@@ -226,7 +226,7 @@ class PlexUploaderr:
                 season,
             ) in matching_seasons:
                 self.logger.debug(
-                    "Match found for Season %s --> Plex show '%s' in library '%s'",
+                    "Match found for Season %s ⟶ Plex show '%s' in library '%s'",
                     season.index,
                     first_show_title,
                     library_name,
@@ -304,7 +304,7 @@ class PlexUploaderr:
                                     continue
                             if log_match:
                                 self.logger.debug(
-                                    "Match found in library '%s' for file '%s' --> Plex item '%s'",
+                                    "Match found in library '%s' for file '%s' ⟶ Plex item '%s'",
                                     library_name,
                                     file_path,
                                     title,
@@ -345,7 +345,7 @@ class PlexUploaderr:
                                 continue
                         if log_match:
                             self.logger.debug(
-                                "Match found in library '%s' for file '%s' --> Plex item '%s'",
+                                "Match found in library '%s' for file '%s' ⟶ Plex item '%s'",
                                 library_name,
                                 file_path,
                                 title,
