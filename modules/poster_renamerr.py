@@ -1413,13 +1413,21 @@ class PosterRenamerr:
     def log_matched_file(
         self, asset_type: str, name: str, file_name: str, season_special_name: str = ""
     ) -> None:
-        """Log a matched file with a structured format."""
-        kind = asset_type.capitalize()
-        lines = [f"Matched {kind}:", f"  - {kind}: {name}"]
         if asset_type.lower() in {"season", "special"}:
-            lines.append(f"  - {kind}: {season_special_name}")
-        lines.append(f"  - File: {file_name}")
-        self.logger.debug("\n" + "\n".join(lines))
+            self.logger.debug(
+                "Matched %s: '%s' %s ⟶ '%s'",
+                asset_type,
+                name,
+                season_special_name,
+                file_name,
+            )
+        else:
+            self.logger.debug(
+                "Matched %s: '%s' ⟶ '%s'",
+                asset_type,
+                name,
+                file_name,
+            )
 
     def _copy_file(
         self,
@@ -1547,7 +1555,7 @@ class PosterRenamerr:
                 and cached_border_setting == self.border_setting
                 and cached_custom_color == self.custom_color
             ):
-                self.logger.debug(f"⟶ Skipping unchanged file: {file_path}")
+                self.logger.debug(f"Skipping unchanged file: {file_path}")
                 if webhook_run:
                     self.db.update_webhook_flag(str(target_path), True)
                 return False
