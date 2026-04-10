@@ -313,16 +313,16 @@ class Server:
         fetch_collections = not (single_movie or single_series)
 
         for library_name in self.library_names:
-            self.logger.debug(f"fetching library '{library_name}'")
             try:
                 library = self.plex.library.section(library_name)
             except UnknownType as e:
-                self.logger.error(f"Library '{library_name}' is invalid: {e}")
+                self.logger.error("Library '%s' is invalid: %s", library_name, e)
                 continue
-            self.logger.debug(f"finished fetching library '{library_name}'")
             if library.type == "movie" and not single_series:
+                self.logger.debug("Fetched library: '%s'", library_name)
                 self._process_library(library, movie_dict, fetch_collections)
             if library.type == "show" and not single_movie:
+                self.logger.debug("Fetched library: '%s'", library_name)
                 self._process_library(library, show_dict, fetch_collections)
 
         if single_movie:
@@ -332,19 +332,21 @@ class Server:
         else:
             return movie_dict, show_dict
 
-    # largely taken from what Kometa does
     def get_all_with_paging(self, library):
         self.logger.info(
-            f"Loading All {library.type.capitalize()}s from Library: {library.title}"
+            "Loading all %ss from library: %s", library.type.capitalize(), library.title
         )
         key = f"/library/sections/{library.key}/all?includeGuids=1&type={plexutils.searchType(library.type)}"
         container_start = 0
-        container_size = plexapi.X_PLEX_CONTAINER_SIZE
+        container_size: int = int(plexapi.X_PLEX_CONTAINER_SIZE or 100)
         results = []
         total_size = 1
         while total_size > len(results) and container_start <= total_size:
             self.logger.debug(
-                f"doing an iteration: total={total_size}, start={container_start}, size={container_size}"
+                "Fetching page: total=%s, start=%s, size=%s",
+                total_size,
+                container_start,
+                container_size,
             )
             data = library._server.query(
                 key,
@@ -354,11 +356,15 @@ class Server:
                 },
             )
             subresults = library.findItems(data, initpath=key)
-            total_size = plexutils.cast(
-                int, data.attrib.get("totalSize") or data.attrib.get("size")
+            total_size = int(
+                plexutils.cast(
+                    int, data.attrib.get("totalSize") or data.attrib.get("size") or 0
+                )
             ) or len(subresults)
 
-            librarySectionID = plexutils.cast(int, data.attrib.get("librarySectionID"))
+            librarySectionID = plexutils.cast(
+                int, data.attrib.get("librarySectionID") or 0
+            )
             if librarySectionID:
                 for item in subresults:
                     item.librarySectionID = librarySectionID
@@ -366,10 +372,10 @@ class Server:
             results.extend(subresults)
             container_start += container_size
             self.logger.debug(
-                f"Loaded: {total_size if container_start > total_size else container_start}/{total_size}"
+                "Progress: %s/%s", min(container_start, total_size), total_size
             )
 
-        self.logger.info(f"Loaded {total_size} {library.type.capitalize()}s")
+        self.logger.info("Loaded: %s from %ss", total_size, library.type.capitalize())
 
         return results
 
@@ -384,41 +390,39 @@ class Server:
             item_dict[library.type][library_title] = {}
         if fetch_collections and library_title not in item_dict["collections"]:
             item_dict["collections"][library_title] = {}
-        self.logger.debug(
-            f"Getting all media items from library {library_title}, type={library.type}"
-        )
 
-        self.logger.debug("doing paging...")
+        self.logger.debug(
+            "Fetching items from library '%s' (type=%s)", library_title, library.type
+        )
         all_items = self.get_all_with_paging(library)
-        self.logger.debug("done doing paging...")
-
-        # all_items = library.all()
         self.logger.debug(
-            f"finished getting all media items from library {library_title}, type={library.type}"
+            "Fetched %s items from library '%s'", len(all_items), library_title
         )
+
         for item in all_items:
-            title_key = item.title
             year = item.year or ""
             edition = getattr(item, "editionTitle", None)
-            if edition:
-                title_name = f"{title_key} ({year}) [{edition}]".strip()
-            else:
-                title_name = f"{title_key} ({year})".strip()
-
+            title_name = (
+                f"{item.title} ({year}) [{edition}]".strip()
+                if edition
+                else f"{item.title} ({year})".strip()
+            )
             item_dict[library.type][library_title][title_name] = item
 
         if fetch_collections:
             self.logger.debug(
-                f"Getting all collections from library {library_title}, type={library.type}"
+                "Fetching collections from library '%s' (type=%s)",
+                library.title,
+                library.type,
             )
-            # hopefully this doesn't need to be paged as well?
             all_collections = library.collections()
             self.logger.debug(
-                f"Finished getting all collections from library {library_title}, type={library.type}"
+                "Fetched %s collections from library '%s'",
+                len(all_collections),
+                library_title,
             )
             for collection in all_collections:
-                collection_key = collection.title
-                item_dict["collections"][library_title][collection_key] = collection
+                item_dict["collections"][library_title][collection.title] = collection
 
     def fetch_recently_added(self, media_type: str):
         recently_added_dict = {media_type: {}}
@@ -427,7 +431,9 @@ class Server:
                 library = self.plex.library.section(library_name)
                 if library.type == media_type:
                     self.logger.debug(
-                        f"Fetching recently added items from library: '{library.title}', Type: '{library.type}'"
+                        "Fetching recently added items from library: '%s', Type: '%s'",
+                        library.title,
+                        library.type,
                     )
                     recently_added = library.recentlyAdded(maxresults=5)
                     if recently_added:
@@ -442,17 +448,22 @@ class Server:
                                 title_name
                             ] = item
                         self.logger.info(
-                            f"Fetched {len(recently_added)} recently added items from '{library_name}'"
+                            "Fetched %s recently added items from '%s'",
+                            len(recently_added),
+                            library_name,
                         )
                     else:
                         self.logger.info(
-                            f"No recently added items found in library '{library_name}'"
+                            "No recently added items found in library '%s'",
+                            library_name,
                         )
             except UnknownType as e:
-                self.logger.error(f"Library '{library_name}' is invalid: {e}")
+                self.logger.error("Library '%s' is invalid: %s", library_name, e)
                 continue
             except Exception as e:
                 self.logger.error(
-                    f"An error occurred while fetching recently added items from '{library_name}': {e}"
+                    "An error occurred while fetching recently added items from '%s': %s",
+                    library_name,
+                    e,
                 )
         return recently_added_dict if recently_added_dict[media_type] else None

@@ -1,8 +1,8 @@
+import json
 import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from pprint import pformat
 from typing import Any
 
 from flask import (
@@ -558,7 +558,15 @@ def recieve_webhook():
             database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "No data received"}), 400
-        postarr_logger.debug(f"===== Webhook data =====\n{pformat(data, indent=2)}")
+        postarr_logger.debug(
+            "Webhook data:\n%s", json.dumps(data, indent=2, ensure_ascii=True)
+        )
+
+        if "eventType" not in data:
+            postarr_logger.warning(
+                "Webhook data missing 'eventType' field — only Radarr/Sonarr webhooks are supported"
+            )
+            return jsonify({"message": "Unsupported webhook source"}), 400
 
         valid_event_types = ["Download", "Grab", "MovieAdded", "SeriesAdd"]
         webhook_event_type = data.get("eventType", "")
@@ -568,12 +576,12 @@ def recieve_webhook():
             return jsonify({"message": "OK"}), 200
 
         if webhook_event_type not in valid_event_types:
-            postarr_logger.debug(f"'{webhook_event_type}' is not a valid event type")
-            database.add_job_to_history(job_name, "failed", "webhook")
-            database.update_scheduled_job(job_name, None)
-            return jsonify({"message": "Invalid event type"}), 400
+            postarr_logger.debug(
+                "Ignoring unsupported event type: '%s'", webhook_event_type
+            )
+            return jsonify({"message": "Event type not supported"}), 200
 
-        postarr_logger.info(f"Processing event type: {webhook_event_type}")
+        postarr_logger.debug("Processing event type: '%s'", webhook_event_type)
         item_type = (
             "movie" if "movie" in data else "series" if "series" in data else None
         )
@@ -585,18 +593,18 @@ def recieve_webhook():
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
 
-        id = data.get(item_type, {}).get("id", None)
-        id = int(id)
-        if not id:
-            postarr_logger.error(f"Item ID not found for {item_type} in webhook data")
+        item_id = data.get(item_type, {}).get("id", None)
+        if not item_id:
+            postarr_logger.error("Item ID not found for %s in webhook data", item_type)
             database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
+        item_id = int(item_id)
 
         instance = data.get("instanceName", "")
         if not instance:
             postarr_logger.error(
-                "Instance name missing from webhook data, please configure in arr settings."
+                "Instance name missing from webhook data, please configure in arr settings"
             )
             database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
@@ -615,15 +623,15 @@ def recieve_webhook():
                 if season_number:
                     item_path = f"{item_path}-Season{season_number}"
                     postarr_logger.debug(
-                        f"Found episodes, updating item_path to '{item_path}'"
+                        "Found episodes, updating item_path: %s", item_path
                     )
                 else:
                     postarr_logger.debug(
-                        f"No season number found, sticking with item_path= '{item_path}'"
+                        "No season number found, sticking with item_path: %s", item_path
                     )
             else:
                 postarr_logger.debug(
-                    f"No episode info found, sticking with item_path= '{item_path}'"
+                    "No episode info found, sticking with item_path: %s", item_path
                 )
 
         if not item_path:
@@ -634,34 +642,34 @@ def recieve_webhook():
 
         new_item = {
             "type": item_type,
-            "item_id": id,
+            "item_id": item_id,
             "instance_name": instance,
             "item_path": item_path,
         }
 
-        postarr_logger.debug(f"NEW ITEM = \n{pformat(new_item, indent=2)}")
+        postarr_logger.debug(
+            "New item:\n%s", json.dumps(new_item, indent=2, ensure_ascii=True)
+        )
 
         is_duplicate = webhook_manager.is_duplicate_webhook(new_item)
         if is_duplicate:
-            postarr_logger.debug(f"Duplicate webhook detected: {new_item}")
+            postarr_logger.info("Duplicate webhook detected: %s", new_item["item_path"])
             database.add_job_to_history(job_name, "skipped (dupe)", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Skipped task (duplicate)"}), 200
         else:
-            postarr_logger.debug(f"Extracted item: {new_item}")
             result = run_renamer_task(flask_app, webhook_item=new_item)
 
     except Exception as e:
         postarr_logger.error(
-            f"Error retrieving single item from webhook: {e}", exc_info=True
+            "Error retrieving single item from webhook: %s", e, exc_info=True
         )
         database.add_job_to_history(job_name, "failed", "webhook")
         return jsonify({"message": "Internal server error"}), 500
 
     database.add_job_to_history(job_name, "success", "webhook")
     database.update_scheduled_job(job_name, None)
-    postarr_logger.debug(f"Returning response: {result}")
-    return jsonify(result), 500 if result["success"] is False else 202
+    return jsonify(result), 202 if result["success"] is not False else 500
 
 
 @poster_renamer.route("/run-unmatched-job", methods=["POST"])

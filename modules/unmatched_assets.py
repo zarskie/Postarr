@@ -18,7 +18,7 @@ from progress import ProgressState
 
 class UnmatchedAssets:
     def __init__(self, payload: Payload):
-        self.logger = logging.getLogger("unmatched-assets")
+        self.logger = logging.getLogger(Settings.UNMATCHED_ASSETS.value)
         try:
             log_dir = Path(Settings.LOG_DIR.value) / Settings.UNMATCHED_ASSETS.value
             init_logger(
@@ -38,17 +38,11 @@ class UnmatchedAssets:
             )
             self.db = Database(self.logger)
             self.db.initialize_stats()
-            self.db.cleanup_orhpaned_seasons()
         except Exception as e:
             self.logger.exception("Failed to initialize UnmatchedAssets")
             raise e
 
     image_exts = {".png", ".jpg", ".jpeg"}
-
-    def _log_banner(self, job_id):
-        self.logger.info("\n" + "#" * 80)
-        self.logger.info(f"### New UnmatchedAssets Run -- Job ID: '{job_id}'")
-        self.logger.info("\n" + "#" * 80)
 
     def get_assets_from_db(self):
         return self.db.return_all_files()
@@ -101,9 +95,6 @@ class UnmatchedAssets:
 
         return extracted_assets
 
-    # need to update this function to be aligned with the matching... really need a common function
-    # that takes in raw asset and raw media and "does magic" in both places... but not so simple...
-    # removing prefixes, spaces, and (us) etc breaks here...
     def get_unmatched_assets(
         self,
         media_dict: dict[str, list[dict]],
@@ -268,9 +259,6 @@ class UnmatchedAssets:
                 self.db.delete_unmatched_asset(
                     db_table="unmatched_movies", title=movie["title"]
                 )
-                self.logger.debug(
-                    f"Removed movie: {movie['title']} from unmatched database"
-                )
 
     def _cleanup_unmatched_collections(
         self,
@@ -282,9 +270,6 @@ class UnmatchedAssets:
                 self.db.delete_unmatched_asset(
                     db_table="unmatched_collections", title=collection["title"]
                 )
-                self.logger.debug(
-                    f"Removed collection: {collection['title']} from unmatched database"
-                )
 
     def _cleanup_unmatched_show_seasons(
         self, new_unmatched_shows: list[dict], current_unmatched_shows: list[dict]
@@ -293,14 +278,9 @@ class UnmatchedAssets:
         for show in current_unmatched_shows:
             show_title = show["title"]
             if show_title not in new_unmatched_lookup:
-                expected_cascade = [s["season"] for s in show.get("seasons", [])]
-                self.logger.debug(
-                    f"Deleting show: '{show_title}' (id={show['id']}) - expecting cascade delete for seasons: {expected_cascade}"
-                )
                 self.db.delete_unmatched_asset(
                     db_table="unmatched_shows", title=show_title
                 )
-                self.logger.debug(f"Removed show: {show_title} from unmatched database")
                 continue
 
             new_unmatched_show = new_unmatched_lookup[show_title]
@@ -311,9 +291,8 @@ class UnmatchedAssets:
             seasons_to_delete = current_unmatched_seasons - new_unmatched_seasons
 
             for season in seasons_to_delete:
-                self.db.delete_unmatched_season(show_id=show["id"], season=season)
-                self.logger.debug(
-                    f"Removed season: {season} for {show_title} from unmatched database"
+                self.db.delete_unmatched_season(
+                    show_id=show["id"], show_title=show_title, season=season
                 )
 
     def get_unmatched_count_dict(
@@ -423,36 +402,31 @@ class UnmatchedAssets:
         )
 
         if unmatched_movie_list:
-            table_data = [["UNMATCHED MOVIES", ""]]
-            for movie in unmatched_movie_list:
-                table_data.append([movie])
             self.logger.info(
-                "\n" + tabulate(table_data, headers="firstrow", tablefmt="fancy_grid")
+                "\n### Unmatched Movies ###\n%s\n",
+                tabulate([[m] for m in unmatched_movie_list], tablefmt="fancy_grid"),
             )
 
         if unmatched_show_season_list:
-            table_data = [["UNMATCHED SHOWS AND SEASONS", ""]]
-
+            rows = []
             for show in unmatched_show_season_list:
                 show_clean = utils.strip_id(show["title"])
                 missing_assets = []
                 if show.get("main_poster_missing", True):
                     missing_assets.append("show poster")
-                missing_seasons = show.get("seasons", [])
-                missing_assets.extend(missing_seasons)
-                missing_assets_str = ", ".join(missing_assets) or "None"
-                table_data.append([show_clean, missing_assets_str])
-
+                missing_assets.extend(show.get("seasons", []))
+                rows.append([show_clean, ", ".join(missing_assets) or "None"])
             self.logger.info(
-                "\n" + tabulate(table_data, headers="firstrow", tablefmt="fancy_grid")
+                "\n### Unmatched Shows and Seasons ###\n%s\n",
+                tabulate(rows, headers=["Show", "Missing"], tablefmt="fancy_grid"),
             )
 
         if unmatched_collection_list:
-            table_data = [["UNMATCHED COLLECTIONS", ""]]
-            for collection in unmatched_collection_list:
-                table_data.append([collection])
             self.logger.info(
-                "\n" + tabulate(table_data, headers="firstrow", tablefmt="fancy_grid")
+                "\n### Unmatched Collections ###\n%s\n",
+                tabulate(
+                    [[c] for c in unmatched_collection_list], tablefmt="fancy_grid"
+                ),
             )
 
         total_table_data = [
@@ -488,12 +462,12 @@ class UnmatchedAssets:
             ],
         ]
         self.logger.info(
-            "\n"
-            + tabulate(
+            "\n### Summary ###\n%s",
+            tabulate(
                 total_table_data,
                 headers=["Type", "Total", "Unmatched", "Percent Complete"],
                 tablefmt="fancy_grid",
-            )
+            ),
         )
 
     def run(
@@ -504,24 +478,29 @@ class UnmatchedAssets:
         from modules import utils
 
         try:
-            self._log_banner(job_id)
+            utils.log_banner(self.logger, Settings.UNMATCHED_ASSETS.value, job_id)
+            self.db.cleanup_orphaned_seasons()
             if job_id and cb:
                 cb(job_id, 20, ProgressState.IN_PROGRESS)
 
-            self.logger.debug("Creating media and collections dict.")
+            self.logger.debug("Fetching media and collections from arr instances")
             media_dict = utils.get_combined_media_dict(
-                self.radarr_instances, self.sonarr_instances, self.logger
+                self.radarr_instances, self.sonarr_instances
             )
             collections_dict = utils.get_combined_collections_dict(self.plex_instances)
             if job_id and cb:
                 cb(job_id, 30, ProgressState.IN_PROGRESS)
-            self.logger.debug("Created media dict and collections dict")
-            self.logger.debug("Getting all assets")
+            self.logger.debug("Fetching assets from database")
             assets = self.db.return_all_files()
+            if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                self.logger.debug(
+                    "File cache dump:\n%s",
+                    json.dumps(assets, indent=2),
+                )
             if job_id and cb:
                 cb(job_id, 50, ProgressState.IN_PROGRESS)
 
-            self.logger.debug("Getting all unmatched assets and asset counts")
+            self.logger.debug("Computing unmatched assets and counts")
             unmatched_assets_for_cleanup = self.get_unmatched_assets(
                 media_dict,
                 collections_dict,
@@ -534,7 +513,7 @@ class UnmatchedAssets:
             )
             if job_id and cb:
                 cb(job_id, 70, ProgressState.IN_PROGRESS)
-            self.logger.debug("Cleaning up database")
+            self.logger.debug("Cleaning up stale unmatched entries")
 
             self.cleanup_unmatched_media(unmatched_assets_for_cleanup)
 
@@ -544,13 +523,16 @@ class UnmatchedAssets:
                 unmatched_assets = self.get_unmatched_assets(
                     media_dict, collections_dict, assets, self.show_all_unmatched
                 )
-            self.logger.debug(
-                "Unmatched assets summary:\n%s", json.dumps(unmatched_assets, indent=4)
-            )
+            if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                self.logger.debug(
+                    "Unmatched assets dump:\n%s",
+                    json.dumps(unmatched_assets, indent=2),
+                )
 
             self.print_output(
                 asset_count_dict, unmatched_assets, self.show_all_unmatched
             )
+            self.logger.info("Finished unmatched assets")
             if job_id and cb:
                 cb(job_id, 100, ProgressState.COMPLETED)
         except Exception as e:

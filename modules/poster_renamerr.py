@@ -5,10 +5,9 @@ import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
-from pprint import pformat
 
 from pathvalidate import sanitize_filename
-from tqdm import tqdm
+from tabulate import tabulate
 
 from modules import utils
 from modules.border_replacerr import BorderReplacerr
@@ -21,7 +20,7 @@ from progress import ProgressState
 
 class PosterRenamerr:
     def __init__(self, payload):
-        self.logger = logging.getLogger("PosterRenamerr")
+        self.logger = logging.getLogger(Settings.POSTER_RENAMERR.value)
         try:
             log_dir = Path(Settings.LOG_DIR.value) / Settings.POSTER_RENAMERR.value
             init_logger(
@@ -47,9 +46,6 @@ class PosterRenamerr:
             if payload.border_setting in supported_options:
                 self.border_setting = payload.border_setting
             else:
-                self.logger.warning(
-                    f"Invalid border color setting: {payload.border_setting}. Border replacerr will not run."
-                )
                 self.border_setting = None
                 self.replace_border = False
             if self.border_setting == "custom" or self.border_setting == "black":
@@ -59,7 +55,7 @@ class PosterRenamerr:
                     self.custom_color = payload.custom_color
                 else:
                     self.logger.warning(
-                        f"Invalid hex color code: {payload.custom_color}. Border replacerr will not run."
+                        f"Invalid hex color code: {payload.custom_color}, border replacerr will not run"
                     )
                     self.custom_color = None
                     self.replace_border = False
@@ -67,7 +63,8 @@ class PosterRenamerr:
                 self.custom_color = None
                 self.replace_border = payload.replace_border
 
-            self.border_replacerr = BorderReplacerr(custom_color=self.custom_color)
+            if self.replace_border:
+                self.border_replacerr = BorderReplacerr(custom_color=self.custom_color)
             self.plex_instances = utils.create_plex_instances(
                 payload, Server, self.logger
             )
@@ -192,21 +189,20 @@ class PosterRenamerr:
 
         return matches
 
-    def _log_banner(self, job_id):
-        self.logger.info("\n" + "#" * 80)
-        self.logger.info(f"### New PosterRenamerr Run - Job ID: '{job_id}'")
-        self.logger.info("\n" + "#" * 80)
-
     def clean_cache(self) -> None:
         try:
+            self.logger.info("Attempting to remove orphaned entries in database")
             asset_files = [str(item) for item in Path(self.target_path).rglob("*")]
             cached_file_data = self.db.return_all_files()
             cached_file_paths = list(cached_file_data.keys())
+            removed_count = 0
 
             for item in cached_file_paths:
                 if item not in asset_files:
                     self.db.delete_cached_file(item)
                     self.logger.debug(f"Cleaned {item} from database")
+                    removed_count += 1
+            self.logger.info(f"Removed {removed_count} items from database")
         except Exception as e:
             self.logger.error(f"Error cleaning cache: {e}")
 
@@ -277,17 +273,17 @@ class PosterRenamerr:
 
             if self.asset_folders:
                 self.logger.info(
-                    "Detected asset folder configuration. Attempting to remove invalid assets."
+                    f"Detected asset folder configuration, attempting to remove invalid assets in {self.target_path}"
                 )
             else:
                 self.logger.info(
-                    "Detected flat asset configuration. Attempting to remove invalid assets."
+                    f"Detected flat asset configuration, attempting to remove invalid assets in {self.target_path}"
                 )
             for item in asset_files:
                 parent_dir = item.parent
                 if self.asset_folders:
                     if parent_dir == self.target_path or parent_dir == self.backup_dir:
-                        self.logger.info(f"Removing orphaned asset file --> {item}")
+                        self.logger.info(f"Removing orphaned asset file: {item}")
                         item.unlink()
                         removed_asset_count += 1
                     else:
@@ -319,7 +315,7 @@ class PosterRenamerr:
                     if asset_pattern:
                         asset_title = utils.remove_chars(asset_pattern.group(1))
                         if asset_title not in titles:
-                            self.logger.info(f"Removing orphaned asset file --> {item}")
+                            self.logger.info(f"Removing orphaned asset file: {item}")
                             item.unlink()
                             removed_asset_count += 1
                         else:
@@ -340,9 +336,7 @@ class PosterRenamerr:
                     if sub_dir.is_dir() and not any(sub_dir.iterdir()):
                         sub_dir.rmdir()
 
-            self.logger.info(
-                f"Removed {removed_asset_count} items from asset directories."
-            )
+            self.logger.info(f"Removed {removed_asset_count} orphaned asset(s)")
 
         except Exception as e:
             self.logger.error(f"Error cleaning assets: {e}")
@@ -364,7 +358,7 @@ class PosterRenamerr:
                     file_cache_data = cached_file_data[str(item)]
                     if file_cache_data.get("uploaded_to_libraries", []):
                         self.logger.debug(
-                            f"Removing upload data for data for orphaned asset file --> {item}"
+                            f"Removing upload data for data for orphaned asset file: {item}"
                         )
                         self.db.remove_upload_data_for_file(str(item))
                         title_to_seasons_without_files[asset_title].remove(season)
@@ -382,34 +376,36 @@ class PosterRenamerr:
         source_directories = [Path(item) for item in self.source_directories]
         source_files = {}
         unique_files = set()
+        self.logger.info(
+            f"Processing {len(source_directories)} source director{'y' if len(source_directories) == 1 else 'ies'}"
+        )
 
-        with tqdm(
-            total=len(source_directories), desc="Processing directories"
-        ) as dir_progress:
-            for source_dir in source_directories:
-                if not source_dir.is_dir():
-                    self.logger.warning(f"{source_dir} is not a valid directory.")
-                    dir_progress.update(1)
+        for source_dir in source_directories:
+            if not source_dir.is_dir():
+                self.logger.warning(
+                    f"{[source_dir]} is not a valid directory, skipping"
+                )
+                continue
+            self.logger.debug(f"[{source_dir.name}] Scanning for images")
+            for poster in source_dir.rglob("*"):
+                if not poster.is_file():
                     continue
-                for poster in source_dir.rglob("*"):
-                    if not poster.is_file():
-                        self.logger.error(f"{poster} is not a file")
-                        continue
-                    if poster.suffix.lower() not in self.image_exts:
-                        self.logger.debug(f"⏩ Skipping non-image file: {poster}")
-                        continue
-                    if poster.name in unique_files:
-                        # self.logger.debug(f"⏩ Skipping duplicate file: {poster}")
-                        continue
-                    unique_files.add(poster.name)
-                    source_files.setdefault(source_dir, []).append(poster)
+                if poster.suffix.lower() not in self.image_exts:
+                    continue
+                if poster.name in unique_files:
+                    continue
+                unique_files.add(poster.name)
+                source_files.setdefault(source_dir, []).append(poster)
 
-                if source_dir in source_files:
-                    # Sort files alphabetically to make processing and matching more consistent
-                    source_files[source_dir] = sorted(
-                        source_files[source_dir], key=lambda x: x.as_posix().lower()
-                    )
-                dir_progress.update(1)
+            if source_dir in source_files:
+                source_files[source_dir] = sorted(
+                    source_files[source_dir], key=lambda x: x.as_posix().lower()
+                )
+                self.logger.debug(
+                    f"[{source_dir.name}] Found {len(source_files[source_dir])} image(s)"
+                )
+            else:
+                self.logger.warning(f"[{source_dir.name}] No images found")
 
         return source_files
 
@@ -446,7 +442,6 @@ class PosterRenamerr:
         file,
         show_status,
         show_has_episodes,
-        show_seasons,
         show_data,
     ):
         matched_shows[file] = {
@@ -455,7 +450,7 @@ class PosterRenamerr:
             "match": show_data,
         }
         show_data["series_poster_matched"] = True
-        self.logger.debug(f"Show seasons: {show_seasons}")
+        # self.logger.debug(f"Show seasons: {show_seasons}")
 
     def get_common_id_sources(self, asset, media):
         common_id_sources = []
@@ -477,16 +472,16 @@ class PosterRenamerr:
                 id_match = (
                     asset["media_ids"][id_source] == media["media_ids"][id_source]
                 )
-                self.logger.debug(
-                    f"both sides shared a common id! do they match? {id_match} ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
-                )
+                # self.logger.debug(
+                #     f"both sides shared a common id! do they match? {id_match} ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
+                # )
                 # if the current source existed but didn't match, but there are still other IDs to consider - keep looping
                 if id_match:
                     return True
             # at this point we know there were common sources and if any had matched we would have short circuited above.
-            self.logger.debug(
-                f"both sides shared a common id! but none matched ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
-            )
+            # self.logger.debug(
+            #     f"both sides shared a common id! but none matched ... asset_ids= {asset['media_ids']}, media_ids= {media['media_ids']}"
+            # )
             return False
 
         has_year_match = (
@@ -499,7 +494,7 @@ class PosterRenamerr:
 
             # no media years (collection) and asset also doesn't have years (collection)
             if "media_item_years" not in media and asset["item_year"] is None:
-                self.logger.debug("matching_year")
+                # self.logger.debug("matching_year")
                 has_year_match = True
 
             if "media_item_years" in media:
@@ -637,6 +632,72 @@ class PosterRenamerr:
                 single_item_stats[key] if key in single_item_stats else 0
             )
 
+    def _log_stats_summary(self, collection_stats, movie_stats, show_stats):
+        collection_rows = [
+            ["Matched", collection_stats.get("matched_collections", 0)],
+            ["Unmatched", collection_stats.get("unmatched_collections", 0)],
+            [
+                "Alt title searches",
+                collection_stats.get("collections_alt_title_searches_performed", 0),
+            ],
+            [
+                "Matched via alt title",
+                collection_stats.get(
+                    "collections_matches_found_with_alt_title_searches", 0
+                ),
+            ],
+        ]
+        movie_rows = [
+            ["Matched", movie_stats.get("matched_movies", 0)],
+            ["Unmatched", movie_stats.get("unmatched_movies", 0)],
+            [
+                "Alt title searches",
+                movie_stats.get("movies_alt_title_searches_performed", 0),
+            ],
+            [
+                "Matched via alt title",
+                movie_stats.get("movies_matches_found_with_alt_title_searches", 0),
+            ],
+        ]
+        show_rows = [
+            ["Fully matched", show_stats.get("fully_matched_shows", 0)],
+            ["Unmatched", show_stats.get("unmatched_shows", 0)],
+            [
+                "Partial (missing seasons)",
+                show_stats.get("partial_matched_missing_seasons", 0),
+            ],
+            [
+                "Partial (missing poster)",
+                show_stats.get("partial_matched_missing_poster", 0),
+            ],
+            [
+                "Partial (missing specials only)",
+                show_stats.get("partial_matched_only_missing_specials", 0),
+            ],
+            [
+                "Alt title searches",
+                show_stats.get("shows_alt_title_searches_performed", 0),
+            ],
+            [
+                "Matched via alt title",
+                show_stats.get("shows_matches_found_with_alt_title_searches", 0),
+            ],
+        ]
+
+        sections = [
+            ("### Collections ###", collection_rows),
+            ("### Movies ###", movie_rows),
+            ("### Shows ###", show_rows),
+        ]
+
+        output = "\nMatching Summary:"
+        for title, rows in sections:
+            output += f"\n{title}\n"
+            output += tabulate(rows, headers=["Stat", "Count"], tablefmt="simple")
+            output += "\n"
+
+        self.logger.info(output)
+
     def match_files_with_media(
         self,
         source_files: dict[str, list[Path]],
@@ -667,134 +728,139 @@ class PosterRenamerr:
 
         self.index_all_asset_files(source_files, prefix_index)
 
-        with tqdm(
-            total=total_files, desc="Processing media files for matches"
-        ) as progress_bar:
-            ################ PROCESS COLLECTIONS ################
-            overall_collection_stats = {
-                "matched_collections": 0,
-                "unmatched_collections": 0,
-                "collections_alt_title_searches_performed": 0,
-                "collections_matches_found_with_alt_title_searches": 0,
-            }
-            for collection_name in flattened_col_list[:]:
-                # for collections they are a bit "special" in that it could be x.jpg or x collection.jpg on the file and the prefix of those two
-                # files in the index is different.  So for a collection we effectively want to search for the main version to start
-                # and then fall back to the other variation.  This is effectively mimicking alternate title searching.
-                variations_to_search = self.get_title_variations_for_collections(
-                    collection_name
-                )
-
-                single_collection_stats = self.match_collection_with_files(
-                    matched_files, prefix_index, collection_name, variations_to_search
-                )
-                self.merge_stats_into_overall_asset_stats(
-                    overall_collection_stats, single_collection_stats
-                )
-                processed_files += 1
-                self.update_progress(
-                    cb, job_id, processed_files, total_files, progress_bar
-                )
-
-            ################ PROCESS MOVIES ################
-            overall_movie_stats = {
-                "matched_movies": 0,
-                "unmatched_movies": 0,
-                "movies_alt_title_searches_performed": 0,
-                "movies_matches_found_with_alt_title_searches": 0,
-            }
-            for movie_data in movies_list_copy[:]:
-                alt_titles_clean = self.get_alt_titles_from_media_item(movie_data)
-
-                titles_to_search = [movie_data.get("title", "")]
-                # append alt titles to the end.  Will only be used if the main title search isn't found
-                titles_to_search.extend(alt_titles_clean)
-
-                single_movie_stats = self.match_movie_with_files(
-                    matched_files, prefix_index, movie_data, titles_to_search
-                )
-                self.merge_stats_into_overall_asset_stats(
-                    overall_movie_stats, single_movie_stats
-                )
-
-                processed_files += 1
-                self.update_progress(
-                    cb, job_id, processed_files, total_files, progress_bar
-                )
-
-            ################ PROCESS SHOWS ################
-            overall_show_stats = {
-                "fully_matched_shows": 0,
-                "unmatched_shows": 0,
-                "partial_matched_shows": 0,
-                "partial_matched_missing_seasons": 0,
-                "partial_matched_missing_poster": 0,
-                "partial_matched_only_missing_specials": 0,
-                "shows_matches_found_with_alt_title_searches": 0,
-                "shows_alt_title_searches_performed": 0,
-            }
-            for show_data in shows_list_copy[:]:
-                alt_titles_clean = self.get_alt_titles_from_media_item(show_data)
-
-                titles_to_search = [show_data.get("title", "")]
-                # append alt titles to the end.  Will only be used if the main title search isn't found
-                titles_to_search.extend(alt_titles_clean)
-
-                single_show_stats = self.match_show_with_files(
-                    matched_files, prefix_index, titles_to_search, show_data
-                )
-                self.merge_stats_into_overall_asset_stats(
-                    overall_show_stats, single_show_stats
-                )
-
-                processed_files += 1
-                self.update_progress(
-                    cb, job_id, processed_files, total_files, progress_bar
-                )
-
-        self.logger.info(f"collection matching stats: {overall_collection_stats}")
-        self.logger.info(f"movie matching stats: {overall_movie_stats}")
-        self.logger.info(f"show matching stats: {overall_show_stats}")
-        if matched_files["dups"]:
-            self.logger.info("DUPLICATE ASSET MATCHES DETECTED")
-            self.logger.info(json.dumps(matched_files["dups"], indent=4))
-            matched_files["dups"] = (
-                None  # clear this out so that it's not repeated below
+        ################ PROCESS COLLECTIONS ################
+        overall_collection_stats = {
+            "matched_collections": 0,
+            "unmatched_collections": 0,
+            "collections_alt_title_searches_performed": 0,
+            "collections_matches_found_with_alt_title_searches": 0,
+        }
+        for collection_name in flattened_col_list[:]:
+            # for collections they are a bit "special" in that it could be x.jpg or x collection.jpg on the file and the prefix of those two
+            # files in the index is different.  So for a collection we effectively want to search for the main version to start
+            # and then fall back to the other variation.  This is effectively mimicking alternate title searching.
+            variations_to_search = self.get_title_variations_for_collections(
+                collection_name
             )
-        self.logger.debug("Matched files summary:")
-        self.logger.debug(pformat(matched_files))
+
+            single_collection_stats = self.match_collection_with_files(
+                matched_files, prefix_index, collection_name, variations_to_search
+            )
+            self.merge_stats_into_overall_asset_stats(
+                overall_collection_stats, single_collection_stats
+            )
+            processed_files += 1
+            self.update_progress(cb, job_id, processed_files, total_files)
+
+        ################ PROCESS MOVIES ################
+        overall_movie_stats = {
+            "matched_movies": 0,
+            "unmatched_movies": 0,
+            "movies_alt_title_searches_performed": 0,
+            "movies_matches_found_with_alt_title_searches": 0,
+        }
+        for movie_data in movies_list_copy[:]:
+            alt_titles_clean = self.get_alt_titles_from_media_item(movie_data)
+
+            titles_to_search = [movie_data.get("title", "")]
+            # append alt titles to the end.  Will only be used if the main title search isn't found
+            titles_to_search.extend(alt_titles_clean)
+
+            single_movie_stats = self.match_movie_with_files(
+                matched_files, prefix_index, movie_data, titles_to_search
+            )
+            self.merge_stats_into_overall_asset_stats(
+                overall_movie_stats, single_movie_stats
+            )
+
+            processed_files += 1
+            self.update_progress(cb, job_id, processed_files, total_files)
+
+        ################ PROCESS SHOWS ################
+        overall_show_stats = {
+            "fully_matched_shows": 0,
+            "unmatched_shows": 0,
+            "partial_matched_shows": 0,
+            "partial_matched_missing_seasons": 0,
+            "partial_matched_missing_poster": 0,
+            "partial_matched_only_missing_specials": 0,
+            "shows_matches_found_with_alt_title_searches": 0,
+            "shows_alt_title_searches_performed": 0,
+        }
+        for show_data in shows_list_copy[:]:
+            alt_titles_clean = self.get_alt_titles_from_media_item(show_data)
+
+            titles_to_search = [show_data.get("title", "")]
+            # append alt titles to the end.  Will only be used if the main title search isn't found
+            titles_to_search.extend(alt_titles_clean)
+
+            single_show_stats = self.match_show_with_files(
+                matched_files, prefix_index, titles_to_search, show_data
+            )
+            self.merge_stats_into_overall_asset_stats(
+                overall_show_stats, single_show_stats
+            )
+
+            processed_files += 1
+            self.update_progress(
+                cb,
+                job_id,
+                processed_files,
+                total_files,
+            )
+
+        self._log_stats_summary(
+            overall_collection_stats, overall_movie_stats, overall_show_stats
+        )
+
+        if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+            self.logger.trace(  # type: ignore[attr-defined]
+                "### Matched files dump ###\n%s",
+                json.dumps(
+                    utils.normalize(matched_files), indent=2, ensure_ascii=False
+                ),
+            )
+        if matched_files["dups"]:
+            dup_rows = [[file, match] for file, match in matched_files["dups"].items()]
+            self.logger.debug(
+                "\n### Duplicate Asset Matches ###\n%s",
+                tabulate(dup_rows, headers=["File", "Match"], tablefmt="simple"),
+            )
+            matched_files["dups"] = None
+
+        utils.log_matched_files_summary(
+            self.logger, matched_files["movies"], "movies", "Matched movies summary"
+        )
+        utils.log_matched_files_summary(
+            self.logger, matched_files["shows"], "shows", "Matched series summary"
+        )
+        utils.log_matched_collections_summary(self.logger, matched_files["collections"])
 
         return matched_files
 
     def index_all_asset_files(self, source_files, prefix_index):
-        total_directories = len(source_files)
+        # total_directories = len(source_files)
         items_indexed = 0
-        with tqdm(
-            total=total_directories, desc="Processing directories"
-        ) as progress_bar:
-            for directory, files in source_files.items():
-                self.logger.info(f"Processing directory: {directory}")
-                for file in files:
-                    name_without_extension = file.stem
-                    # could add an id --> file lookup here :-)
-                    # not building an asset type index here yet since we process assets on-the-fly
-                    # everything will be placed into the 'all' asset type for now
-                    file_ref = {"file": file}
-                    self.build_search_index(
-                        prefix_index,
-                        name_without_extension,
-                        file_ref,
-                        "all",
-                        debug_items=None,
-                    )
-                    items_indexed += 1
-                progress_bar.update(1)
-            self.logger.info(
-                f"all directories processed and index is built. Found {items_indexed} posters"
-            )
+        for _, files in source_files.items():
+            for file in files:
+                name_without_extension = file.stem
+                # could add an id --> file lookup here :-)
+                # not building an asset type index here yet since we process assets on-the-fly
+                # everything will be placed into the 'all' asset type for now
+                file_ref = {"file": file}
+                self.build_search_index(
+                    prefix_index,
+                    name_without_extension,
+                    file_ref,
+                    "all",
+                    debug_items=None,
+                )
+                items_indexed += 1
+        self.logger.info(
+            f"All directories processed and index is built. Found {items_indexed} posters"
+        )
 
-    def update_progress(self, cb, job_id, processed_files, total_files, progress_bar):
-        progress_bar.update(1)
+    def update_progress(self, cb, job_id, processed_files, total_files):
         if job_id and cb:
             progress = int((processed_files / total_files) * 70)
             cb(job_id, progress + 10, ProgressState.IN_PROGRESS)
@@ -825,18 +891,19 @@ class PosterRenamerr:
         }
 
         shows_main_title_search = True
-        self.logger.debug(f"titles_to_search: {titles_to_search}")
+        # self.logger.debug(f"titles_to_search: {titles_to_search}")
         found_a_match = False
         for title in titles_to_search:
             if shows_main_title_search:
-                self.logger.debug(
-                    f"doing main title search for {show_data.get('title', '')} of: {title}"
-                )
+                # self.logger.debug(
+                #     f"doing main title search for {show_data.get('title', '')} of: {title}"
+                # )
+                pass
             else:
                 stats["shows_alt_title_searches_performed"] += 1
-                self.logger.debug(
-                    f"doing alt title search for {show_data.get('title', '')} of: {title}"
-                )
+                # self.logger.debug(
+                #     f"doing alt title search for {show_data.get('title', '')} of: {title}"
+                # )
             matched_show_files = self.find_series_matches(
                 prefix_index, title, show_data, matched_files["dups"]
             )
@@ -853,7 +920,7 @@ class PosterRenamerr:
 
                 # if we found a match, but it wasn't the entire show, let's get some stats
                 if not matched_entire_show:
-                    self.logger.debug(f"partial_match encountered {show_data}")
+                    # self.logger.debug(f"partial_match encountered {show_data}")
                     stats["partial_matched_shows"] += 1
                     show_seasons = show_data.get("seasons", [])
                     for season in show_seasons:
@@ -864,6 +931,9 @@ class PosterRenamerr:
                             stats["partial_matched_only_missing_specials"] += 1
                         if season["has_episodes"]:
                             stats["partial_matched_missing_seasons"] += 1
+                            self.logger.info(
+                                f"No match found for 'season {season.get('season', '')[-2:]}' of {show_data.get('title', '')}"
+                            )
                             break
                     if "series_poster_matched" not in show_data or (
                         "series_poster_matched" in show_data
@@ -927,18 +997,19 @@ class PosterRenamerr:
             "movies_matches_found_with_alt_title_searches": 0,
         }
         movies_main_title_search = True
-        self.logger.debug(f"titles_to_search: {titles_to_search}")
+        # self.logger.debug(f"titles_to_search: {titles_to_search}")
         found_a_match = False
         for title in titles_to_search:
             if movies_main_title_search:
-                self.logger.debug(
-                    f"doing main title search for {movie_data.get('title', '')} of: {title}"
-                )
+                # self.logger.debug(
+                #     f"doing main title search for {movie_data.get('title', '')} of: {title}"
+                # )
+                pass
             else:
                 stats["movies_alt_title_searches_performed"] += 1
-                self.logger.debug(
-                    f"doing alt title search for {movie_data.get('title', '')} of: {title}"
-                )
+                # self.logger.debug(
+                #     f"doing alt title search for {movie_data.get('title', '')} of: {title}"
+                # )
 
             matched_movie_files = self.find_movie_matches(
                 prefix_index, title, movie_data, matched_files["dups"]
@@ -1006,11 +1077,11 @@ class PosterRenamerr:
         search_matches = self.search_matches(
             prefix_index, search_title, "all", debug_search=False
         )
-        self.logger.debug(
-            f"SEARCH (shows): matched assets for {show_data.get('title', '')} with query {search_title}"
-        )
-        self.logger.debug(f"show_data: {show_data}")
-        self.logger.debug(f"search_matches: {search_matches}")
+        # self.logger.debug(
+        #     f"SEARCH (shows): matched assets for {show_data.get('title', '')} with query {search_title}"
+        # )
+        # self.logger.debug(f"show_data: {show_data}")
+        # self.logger.debug(f"search_matches: {search_matches}")
 
         # really inefficient for now but I have to ensure we loop over _ever single match since seasons are calculated on the fly based on the files
         # this is expensive - especially since we don't remove items from the match list (though we could....)
@@ -1028,7 +1099,7 @@ class PosterRenamerr:
             season_num = search_match["season_num"]
 
             if not poster_file_year:
-                self.logger.debug(f"Skipping collection file: '{file}'")
+                # self.logger.debug(f"Skipping collection file: '{file}'")
                 continue  # it's a collection, skip it.
 
             matched_season = False
@@ -1039,9 +1110,9 @@ class PosterRenamerr:
                 search_match, media_object, special_debug=local_debug
             ):
                 if season_num or has_season_info:
-                    self.logger.debug(
-                        f"found a season num ({season_num}) for file {file}, trying to match_show_season"
-                    )
+                    # self.logger.debug(
+                    #     f"found a season num ({season_num}) for file {file}, trying to match_show_season"
+                    # )
                     for season in show_seasons[:]:
                         season_str = season.get("season", "")
                         season_str_match = re.match(r"season(\d+)", season_str)
@@ -1060,9 +1131,9 @@ class PosterRenamerr:
                                     )
                                     matched_previously_matched_item = True
                                     continue
-                                self.logger.debug(
-                                    f"Matched season {media_season_num} for show: {show_name} with {file}"
-                                )
+                                # self.logger.debug(
+                                #     f"Matched season {media_season_num} for show: {show_name} with {file}"
+                                # )
                                 self.handle_show_season_match(
                                     season,
                                     matched_files["shows"],
@@ -1083,16 +1154,16 @@ class PosterRenamerr:
                         continue
                     if matched_season:
                         if self.is_season_complete(show_seasons, show_data):
-                            self.logger.debug(
-                                f"All seasons and series poster matched for {show_name}"
-                            )
+                            # self.logger.debug(
+                            #     f"All seasons and series poster matched for {show_name}"
+                            # )
                             matched_entire_show = True
                             break  # can stop looping if we have everything
                         continue  # otherwise keep looping
 
                 # deal with show poster matches if we don't already have one
                 if not matched_season and not has_season_info and not matched_poster:
-                    self.logger.debug(f"no match yet for file {file}, trying again...")
+                    # self.logger.debug(f"no match yet for file {file}, trying again...")
                     if "previously_matched" in search_match:
                         matched_previously_matched_item = True
                         self.handle_previously_matched_asset(
@@ -1102,21 +1173,20 @@ class PosterRenamerr:
 
                     search_match["previously_matched"] = f"shows: {show_name}"
                     matched_poster = True
-                    self.logger.debug(
-                        f"Matched series poster for show: {show_name} with {file}"
-                    )
+                    # self.logger.debug(
+                    #     f"Matched series poster for show: {show_name} with {file}"
+                    # )
                     self.handle_show_series_match(
                         matched_files["shows"],
                         file,
                         show_status,
                         show_has_episodes,
-                        show_seasons,
                         show_data,
                     )
                     if self.is_season_complete(show_seasons, show_data):
-                        self.logger.debug(
-                            f"All seasons and series poster matched for {show_name}"
-                        )
+                        # self.logger.debug(
+                        #     f"All seasons and series poster matched for {show_name}"
+                        # )
                         matched_entire_show = True
                         break  # can stop looping if we have everything
                     continue  # otherwise keep looping
@@ -1173,10 +1243,10 @@ class PosterRenamerr:
         search_matches = self.search_matches(
             prefix_index, search_title, "all", debug_search=False
         )
-        self.logger.debug(
-            f"SEARCH (movies): matched assets for {movie_data.get('title', '')} with query {search_title}"
-        )
-        self.logger.debug(search_matches)
+        # self.logger.debug(
+        #     f"SEARCH (movies): matched assets for {movie_data.get('title', '')} with query {search_title}"
+        # )
+        # self.logger.debug(search_matches)
 
         for search_match in search_matches:
             self.compute_asset_values_for_match(search_match)
@@ -1193,9 +1263,9 @@ class PosterRenamerr:
                             dups_dict, "movies", movie_title, search_match, file
                         )
                         continue
-                    self.logger.debug(
-                        f"Found match for movie: {movie_title} with {file}"
-                    )
+                    # self.logger.debug(
+                    #     f"Found match for movie: {movie_title} with {file}"
+                    # )
                     self.handle_movie_match(
                         matched_files["movies"],
                         file,
@@ -1250,10 +1320,10 @@ class PosterRenamerr:
             "all",
             debug_search=False,
         )
-        self.logger.debug(
-            f"SEARCH (collections): matched assets for {collection_name} with query {collection_name_to_search}"
-        )
-        self.logger.debug(search_matches)
+        # self.logger.debug(
+        #     f"SEARCH (collections): matched assets for {collection_name} with query {collection_name_to_search}"
+        # )
+        # self.logger.debug(search_matches)
         for search_match in search_matches:
             self.compute_asset_values_for_match(search_match)
             file = search_match["file"]
@@ -1282,9 +1352,9 @@ class PosterRenamerr:
                     search_match["previously_matched"] = (
                         f"collections: {collection_name}"
                     )
-                    self.logger.debug(
-                        f"Matched collection poster for {collection_name} with {file}"
-                    )
+                    # self.logger.debug(
+                    #     f"Matched collection poster for {collection_name} with {file}"
+                    # )
                     break
         self.logger.setLevel(prior_level)
         for handler in self.logger.handlers:
@@ -1344,27 +1414,12 @@ class PosterRenamerr:
         self, asset_type: str, name: str, file_name: str, season_special_name: str = ""
     ) -> None:
         """Log a matched file with a structured format."""
+        kind = asset_type.capitalize()
+        lines = [f"Matched {kind}:", f"  - {kind}: {name}"]
         if asset_type.lower() in {"season", "special"}:
-            self.logger.debug(
-                f"""
-            -------------------------------------------------------
-            Matched {asset_type.capitalize()}:
-                - Show name: {name}
-                - {asset_type.capitalize()}: {season_special_name}
-                - File: {file_name}
-            -------------------------------------------------------
-            """
-            )
-        else:
-            self.logger.debug(
-                f"""
-            -------------------------------------------------------
-            Matched {asset_type.capitalize()}:
-                - {asset_type.capitalize()}: {name}
-                - File: {file_name}
-            -------------------------------------------------------
-            """
-            )
+            lines.append(f"  - {kind}: {season_special_name}")
+        lines.append(f"  - File: {file_name}")
+        self.logger.debug("\n" + "\n".join(lines))
 
     def _copy_file(
         self,
@@ -1383,8 +1438,9 @@ class PosterRenamerr:
         imdb_id: str | None = None,
         tmdb_id: str | None = None,
         tvdb_id: str | None = None,
-    ) -> None:
+    ) -> bool:
         temp_path = None
+        copied = False
         target_path = target_dir / new_file_name
         if backup_dir:
             backup_path = backup_dir / new_file_name
@@ -1420,9 +1476,8 @@ class PosterRenamerr:
             self.logger.debug(f"Current source: {current_source}")
             self.logger.debug(f"Cached source: {cached_source}")
             self.logger.debug(f"Replace border (current): {replace_border}")
-            self.logger.debug(f"Cached border replaced: {cached_border_state}")
-            self.logger.debug(f"Cached border color: {cached_border_setting}")
-            self.logger.debug(f"Current border color: {self.border_setting}")
+            self.logger.debug(f"Cached border replaced: {bool(cached_border_state)}")
+            self.logger.debug(f"Current border setting: {self.border_setting}")
             self.logger.debug(f"Cached custom color: {cached_custom_color}")
             self.logger.debug(f"Current custom color: {self.custom_color}")
             self.logger.debug(f"Cached status: {cached_status}")
@@ -1491,10 +1546,10 @@ class PosterRenamerr:
                 and cached_border_setting == self.border_setting
                 and cached_custom_color == self.custom_color
             ):
-                self.logger.debug(f"⏩ Skipping unchanged file: {file_path}")
+                self.logger.debug(f"⟶ Skipping unchanged file: {file_path}")
                 if webhook_run:
                     self.db.update_webhook_flag(str(target_path), True)
-                return
+                return False
 
         if not backup_dir:
             backup_dir = self.backup_dir
@@ -1512,7 +1567,9 @@ class PosterRenamerr:
                         f"Updated backup at {backup_path}. Previous hash: {backed_up_hash}, New hash: {original_file_hash}"
                     )
                 else:
-                    self.logger.debug("Backup hashes match; no update needed")
+                    self.logger.debug(
+                        "Backup hash matches original file hash, no update needed"
+                    )
         except Exception as e:
             self.logger.error(f"Error copying backup file {file_path}: {e}")
 
@@ -1520,15 +1577,15 @@ class PosterRenamerr:
             try:
                 if self.border_setting.lower() == "remove":
                     final_image = self.border_replacerr.remove_border(file_path)
-                    self.logger.info(f"Removed border on {file_path.name}")
+                    self.logger.debug(f"Removed border on {file_path.name}")
                 elif self.border_setting.lower() in {"custom", "black"}:
                     final_image = self.border_replacerr.replace_border(file_path)
-                    self.logger.info(f"Replaced border on {file_path.name}")
+                    self.logger.debug(f"Replaced border on {file_path.name}")
                 else:
                     self.logger.error(
                         f"Unsupported border setting: {self.border_setting}"
                     )
-                    return
+                    return False
 
                 temp_path = target_dir / f"temp_{new_file_name}"
                 final_image.save(temp_path)
@@ -1554,7 +1611,8 @@ class PosterRenamerr:
 
         try:
             shutil.copy2(file_path, target_path)
-            self.logger.info(f"Copied and renamed: {file_path} -> {target_path}")
+            self.logger.info(f"Copied and renamed: {current_source} ⟶ {target_path}")
+            copied = True
             if cached_file:
                 self.db.update_file(
                     file_hash=file_hash,
@@ -1565,7 +1623,6 @@ class PosterRenamerr:
                     border_setting=self.border_setting,
                     custom_color=self.custom_color,
                 )
-                self.logger.debug(f"Replaced cached file: {cached_file} -> {file_path}")
                 if webhook_run:
                     self.db.update_webhook_flag(str(target_path), True)
             else:
@@ -1592,9 +1649,11 @@ class PosterRenamerr:
                 self.logger.debug(f"Adding new file to database cache: {target_path}")
         except Exception as e:
             self.logger.error(f"Error copying file {file_path}: {e}")
+            return False
 
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
+        return copied
 
     def setup_dirs(
         self,
@@ -1639,142 +1698,146 @@ class PosterRenamerr:
         matched_shows = len(matched_files.get("shows", []))
         matched_collections = len(matched_files.get("collections", []))
         total_matched_items = matched_movies + matched_shows + matched_collections
-        with tqdm(
-            total=total_matched_items,
-            desc=f"Processing matched files (webhook_run={webhook_run})",
-        ) as progress_bar:
-            processed_items = 0
-            for key, items in matched_files.items():
-                if key == "movies":
-                    for file_path, data in items.items():
-                        movie_data = data["match"]
-                        movie_title = movie_data["title"]
-                        movie_folder = movie_data["folder"]
-                        target_dir, backup_dir, file_name_format = self.setup_dirs(
-                            "movie", movie_folder, file_path
+        processed_items = 0
+        copied_movies = 0
+        copied_collections = 0
+        copied_series = 0
+        for key, items in matched_files.items():
+            if key == "movies":
+                for file_path, data in items.items():
+                    movie_data = data["match"]
+                    movie_title = movie_data["title"]
+                    movie_folder = movie_data["folder"]
+                    target_dir, backup_dir, file_name_format = self.setup_dirs(
+                        "movie", movie_folder, file_path
+                    )
+                    if target_dir and file_name_format:
+                        copied = self._copy_file(
+                            file_path,
+                            key,
+                            target_dir,
+                            backup_dir,
+                            file_name_format,
+                            self.replace_border,
+                            status=data.get("status", None),
+                            has_file=data.get("has_file", None),
+                            webhook_run=webhook_run,
+                            arr_id=movie_data.get("id"),
+                            instance=movie_data.get("instance"),
+                            imdb_id=movie_data.get("imdb_id", None),
+                            tmdb_id=movie_data.get("tmdb_id", None),
                         )
-                        if target_dir and file_name_format:
-                            self._copy_file(
-                                file_path,
-                                key,
-                                target_dir,
-                                backup_dir,
-                                file_name_format,
-                                self.replace_border,
-                                status=data.get("status", None),
-                                has_file=data.get("has_file", None),
-                                webhook_run=webhook_run,
-                                arr_id=movie_data.get("id"),
-                                instance=movie_data.get("instance"),
-                                imdb_id=movie_data.get("imdb_id", None),
-                                tmdb_id=movie_data.get("tmdb_id", None),
-                            )
-                        else:
-                            self.logger.warning(
-                                f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{movie_title}'. Skipping.."
-                            )
-                            continue
-                        processed_items += 1
-                        progress_bar.update(1)
-                        if job_id and cb:
-                            progress = int((processed_items / total_matched_items) * 10)
-                            cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
+                        if copied:
+                            copied_movies += 1
+                    else:
+                        self.logger.warning(
+                            f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{movie_title}'. Skipping.."
+                        )
+                        continue
+                    processed_items += 1
+                    if job_id and cb:
+                        progress = int((processed_items / total_matched_items) * 10)
+                        cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
 
-                if key == "collections":
-                    for item in items:
-                        file_path = item["file"]
-                        collection = item["match"]
+            if key == "collections":
+                for item in items:
+                    file_path = item["file"]
+                    collection = item["match"]
+                    target_dir, backup_dir, file_name_format = self.setup_dirs(
+                        "collection", collection, file_path
+                    )
+
+                    if target_dir and file_name_format:
+                        copied = self._copy_file(
+                            file_path,
+                            key,
+                            target_dir,
+                            backup_dir,
+                            file_name_format,
+                            self.replace_border,
+                            webhook_run=webhook_run,
+                        )
+                        if copied:
+                            copied_collections += 1
+                    else:
+                        self.logger.warning(
+                            f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{collection}'. Skipping.."
+                        )
+                        continue
+                    processed_items += 1
+                    if job_id and cb:
+                        progress = int((processed_items / total_matched_items) * 10)
+                        cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
+
+            if key == "shows":
+                for file_path, data in items.items():
+                    show_data = data["match"]
+                    show_name = show_data["title"]
+                    show_folder = show_data["folder"]
+
+                    match_season = re.match(r"(.+?) - Season (\d+)", file_path.stem)
+                    match_specials = re.match(r"(.+?) - Specials", file_path.stem)
+
+                    if match_season:
+                        season_num = int(match_season.group(2))
+                        formatted_season_num = f"Season{season_num:02}"
                         target_dir, backup_dir, file_name_format = self.setup_dirs(
-                            "collection", collection, file_path
+                            "season",
+                            show_folder,
+                            file_path,
+                            formatted_season_num,
+                            "_",
+                        )
+                    elif match_specials:
+                        target_dir, backup_dir, file_name_format = self.setup_dirs(
+                            "special",
+                            show_folder,
+                            file_path,
+                            "Season00",
+                            "_",
+                        )
+                    else:
+                        target_dir, backup_dir, file_name_format = self.setup_dirs(
+                            "series", show_folder, file_path
                         )
 
-                        if target_dir and file_name_format:
-                            self._copy_file(
-                                file_path,
-                                key,
-                                target_dir,
-                                backup_dir,
-                                file_name_format,
-                                self.replace_border,
-                                webhook_run=webhook_run,
-                            )
-                        else:
-                            self.logger.warning(
-                                f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{collection}'. Skipping.."
-                            )
-                            continue
-                        processed_items += 1
-                        progress_bar.update(1)
-                        if job_id and cb:
-                            progress = int((processed_items / total_matched_items) * 10)
-                            cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
-
-                if key == "shows":
-                    for file_path, data in items.items():
-                        show_data = data["match"]
-                        show_name = show_data["title"]
-                        show_folder = show_data["folder"]
-
-                        match_season = re.match(r"(.+?) - Season (\d+)", file_path.stem)
-                        match_specials = re.match(r"(.+?) - Specials", file_path.stem)
-
-                        if match_season:
-                            season_num = int(match_season.group(2))
-                            formatted_season_num = f"Season{season_num:02}"
-                            target_dir, backup_dir, file_name_format = self.setup_dirs(
-                                "season",
-                                show_folder,
-                                file_path,
-                                formatted_season_num,
-                                "_",
-                            )
-                        elif match_specials:
-                            target_dir, backup_dir, file_name_format = self.setup_dirs(
-                                "special",
-                                show_folder,
-                                file_path,
-                                "Season00",
-                                "_",
-                            )
-                        else:
-                            target_dir, backup_dir, file_name_format = self.setup_dirs(
-                                "series", show_folder, file_path
-                            )
-
-                        if target_dir and file_name_format:
-                            self._copy_file(
-                                file_path,
-                                key,
-                                target_dir,
-                                backup_dir,
-                                file_name_format,
-                                self.replace_border,
-                                status=data.get("status", None),
-                                has_episodes=data.get("has_episodes", None),
-                                webhook_run=webhook_run,
-                                arr_id=show_data.get("id"),
-                                instance=show_data.get("instance"),
-                                imdb_id=show_data.get("imdb_id", None),
-                                tmdb_id=show_data.get("tmdb_id", None),
-                                tvdb_id=show_data.get("tvdb_id", None),
-                            )
-                        else:
-                            self.logger.warning(
-                                f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{show_name}'. Skipping.."
-                            )
-                            continue
-                        processed_items += 1
-                        progress_bar.update(1)
-                        if job_id and cb:
-                            progress = int((processed_items / total_matched_items) * 10)
-                            cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
+                    if target_dir and file_name_format:
+                        copied = self._copy_file(
+                            file_path,
+                            key,
+                            target_dir,
+                            backup_dir,
+                            file_name_format,
+                            self.replace_border,
+                            status=data.get("status", None),
+                            has_episodes=data.get("has_episodes", None),
+                            webhook_run=webhook_run,
+                            arr_id=show_data.get("id"),
+                            instance=show_data.get("instance"),
+                            imdb_id=show_data.get("imdb_id", None),
+                            tmdb_id=show_data.get("tmdb_id", None),
+                            tvdb_id=show_data.get("tvdb_id", None),
+                        )
+                        if copied:
+                            copied_series += 1
+                    else:
+                        self.logger.warning(
+                            f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{show_name}'. Skipping.."
+                        )
+                        continue
+                    processed_items += 1
+                    if job_id and cb:
+                        progress = int((processed_items / total_matched_items) * 10)
+                        cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
+        self.logger.info(
+            f"Copied and renamed {copied_movies} movie(s), {copied_collections} collection(s), and {copied_series} series files"
+        )
 
     def handle_single_item(
         self,
         asset_type: str,
         instances: dict,
         single_item: dict,
-        upload_to_plex: bool,
     ) -> dict[str, list] | None:
         media_dict = {"movies": [], "shows": []}
         instance_name = single_item.get("instance_name", "").lower()
@@ -1806,7 +1869,9 @@ class PosterRenamerr:
 
             for item in items:
                 media_dict["movies" if asset_type == "movie" else "shows"].append(item)
-            self.logger.debug(f"Fetched {asset_type}: {items}")
+            self.logger.debug(
+                "Fetched %s:\n%s:", json.dumps(items, indent=2, ensure_ascii=True)
+            )
             return media_dict
 
         except Exception as e:
@@ -1829,7 +1894,9 @@ class PosterRenamerr:
             unmatched_collections_dict = {}
             media_dict = {}
             collections_dict = {}
-            self._log_banner(job_id)
+            utils.log_banner(self.logger, Settings.POSTER_RENAMERR.value, job_id)
+            self.logger.info(f"Replace border: {bool(self.replace_border)}")
+            self.logger.info(f"Asset folder configuration: {bool(self.asset_folders)}")
             if single_item:
                 self.logger.info("Run triggered for a single item via webhook")
                 asset_type = single_item.get("type", "")
@@ -1840,11 +1907,10 @@ class PosterRenamerr:
                     asset_type,
                     combined_instances_dict,
                     single_item,
-                    self.upload_to_plex,
                 )
                 if not media_dict:
                     self.logger.error(
-                        "Failed to create media dictionary for single item.. Exiting."
+                        "Failed to create media dictionary for single item.. Exiting"
                     )
                     if job_id and cb:
                         cb(job_id, 95, ProgressState.IN_PROGRESS)
@@ -1852,17 +1918,17 @@ class PosterRenamerr:
             else:
                 if self.only_unmatched and not single_item:
                     self.logger.debug(
-                        "Creating media and collections dict of unmatched items in library"
+                        "### Creating media and collections dictionary of only unmatched items in library ###"
                     )
                     unmatched_media_dict = self.get_unmatched_media_dict()
                     unmatched_collections_dict = self.get_unmatched_collections_dict()
                 else:
                     self.logger.debug(
-                        "Creating media and collections dict of all items in library"
+                        "### Creating media and collections dictionary of all items in library ###"
                     )
 
                 media_dict = utils.get_combined_media_dict(
-                    self.radarr_instances, self.sonarr_instances, self.logger
+                    self.radarr_instances, self.sonarr_instances
                 )
                 collections_dict = utils.get_combined_collections_dict(
                     self.plex_instances
@@ -1886,27 +1952,44 @@ class PosterRenamerr:
                     "Media and collections dictionaries are empty. Skipping processing."
                 )
                 if self.clean_assets:
-                    self.logger.info(f"Cleaning orphan assets in {self.target_path}")
                     self.clean_asset_dir(media_dict, collections_dict)
-                self.logger.info("Cleaning cache.")
                 self.clean_cache()
-                self.logger.info("Done.")
                 if job_id and cb:
                     cb(job_id, 95, ProgressState.IN_PROGRESS)
                 return
 
-            self.logger.debug(
-                "Media dict summary:\n%s", json.dumps(effective_media_dict, indent=4)
+            utils.log_media_summary(
+                self.logger,
+                effective_media_dict["movies"],
+                media_type="movies",
+                title="Movies Summary",
             )
-            self.logger.debug(
-                "Collections dict summary:\n%s",
-                json.dumps(effective_collections_dict, indent=4),
+            utils.log_media_summary(
+                self.logger,
+                effective_media_dict["shows"],
+                media_type="shows",
+                title="Series Summary",
             )
+            utils.log_collections_summary(self.logger, effective_collections_dict)
+
+            if self.logger.isEnabledFor(logging.TRACE):  # type: ignore[attr-defined]
+                self.logger.trace(  # type: ignore[attr-defined]
+                    "### Media files dump ###\n%s",
+                    json.dumps(
+                        {
+                            "media": utils.normalize(effective_media_dict),
+                            "collections": utils.normalize(effective_collections_dict),
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    ),
+                )
 
             if job_id and cb:
                 cb(job_id, 10, ProgressState.IN_PROGRESS)
+            self.logger.debug("### Scanning source files ###")
             source_files = self.get_source_files()
-            self.logger.debug("Matching files with media")
+            self.logger.debug("### Matching files with media ###")
             matched_files = self.match_files_with_media(
                 source_files,
                 effective_media_dict,
@@ -1914,19 +1997,7 @@ class PosterRenamerr:
                 cb,
                 job_id,
             )
-            if self.asset_folders:
-                self.logger.debug(
-                    "-------------------------------------------------------"
-                )
-                self.logger.debug(f"Asset Folders: {self.asset_folders}")
-                self.logger.debug("Starting file copying and renaming")
-            else:
-                self.logger.debug(
-                    "-------------------------------------------------------"
-                )
-                self.logger.debug(f"Asset Folders: {self.asset_folders}")
-                self.logger.debug("Starting file copying and renaming")
-
+            self.logger.debug("### File Copy + Rename Stage ###")
             self.copy_rename_files(
                 matched_files,
                 cb,
@@ -1934,12 +2005,11 @@ class PosterRenamerr:
                 webhook_run=bool(single_item),
             )
 
+            self.logger.debug("### Cleanup Stage ###")
             if self.clean_assets and not single_item:
-                self.logger.info(f"Cleaning orphan assets in {self.target_path}")
                 self.clean_asset_dir(media_dict, collections_dict)
-            self.logger.info("Cleaning cache.")
             self.clean_cache()
-            self.logger.info("Done.")
+            self.logger.info("Finished Poster Renamerr")
             if job_id and cb:
                 cb(job_id, 95, ProgressState.IN_PROGRESS)
             if single_item:

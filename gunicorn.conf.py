@@ -25,8 +25,8 @@ def post_worker_init(worker):
     )
 
     with app.app_context():
-        postarr_logger.info(f"Starting scheduler in worker {worker.pid}")
+        postarr_logger.debug(f"Starting scheduler in worker {worker.pid}")
         load_schedules_from_db(app)
         scheduler.start()
-        postarr_logger.info(f"Scheduler started successfully in worker {worker.pid}")
+        postarr_logger.debug(f"Scheduler started successfully in worker {worker.pid}")
         update_next_run_times(app)
