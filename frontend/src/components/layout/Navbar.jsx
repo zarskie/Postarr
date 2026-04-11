@@ -10,7 +10,7 @@ function Navbar() {
     <div className="mx-auto max-w-6xl px-2 xl:px-0">
       <nav className="border-b border-gray-800 text-gray-400">
         <div className="flex items-center justify-between py-4 lg:px-0">
-          <img src="/logo.png" alt="/Logo" className="h-8 w-auto" />
+          <img src="/logo.svg" alt="/Logo" className="h-8 w-auto" />
           <ul className="m-0 hidden list-none gap-2 p-0 md:flex">
             <li>
               <Link

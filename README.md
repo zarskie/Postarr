@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img alt="postarr logo" src=".github/images/logo.png" width="160px"/><br/>
+  <img alt="postarr logo" src=".github/images/postarr-logo-512.png" width="160px"/><br/>
   postarr
 </h1>
 

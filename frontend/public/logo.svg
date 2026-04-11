@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   height="800px"
+   width="800px"
+   version="1.1"
+   id="Layer_1"
+   viewBox="0 0 511.883 511.883"
+   xml:space="preserve"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main circle gradient - same as original -->
+    <linearGradient id="circleGrad" x1="76.21933" y1="105.13921" x2="435.65652" y2="406.74283" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9f85e0"/>
+      <stop offset="100%" stop-color="#5243bd"/>
+    </linearGradient>
+    <!-- Highlight arc gradient -->
+    <linearGradient id="highlightGrad" x1="88.628952" y1="219.07785" x2="238.17065" y2="94.910858" gradientUnits="userSpaceOnUse" gradientTransform="matrix(0,1.128066,1.0313763,0,-24.943158,-32.891155)">
+      <stop offset="0%" stop-color="#d2c2f2" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ac92eb" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Outer glow filter -->
+    <filter id="outerGlow" x="-8%" y="-8%" width="116%" height="116%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Outer glow ring -->
+  <circle cx="255.941" cy="255.933" r="242" fill="none" stroke="#9f85e0" stroke-width="2" opacity="0.2"/>
+  <circle cx="255.941" cy="255.933" r="248" fill="none" stroke="#9f85e0" stroke-width="1.5" opacity="0.1"/>
+
+  <!-- Main circle -->
+  <circle cx="255.941" cy="255.933" r="234.61" fill="url(#circleGrad)"/>
+
+  <!-- Highlight arc - reduced opacity -->
+  <path
+     style="fill:url(#highlightGrad);opacity:0.55"
+     d="m 41.041222,255.82833 v -0.008 C 41.048804,136.23672 129.67976,39.289586 239.02015,39.289586 v 0 c 6.07478,0 10.99649,5.383127 10.99649,12.027426 0,6.64319 -4.92171,12.035337 -10.99649,12.035337 h -0.01 c -23.76497,0 -46.80384,5.0842 -68.48136,15.110457 -20.95342,9.692336 -39.77912,23.578824 -55.94804,41.262444 -16.167839,17.68352 -28.864096,38.27526 -37.725669,61.19301 -9.167898,23.71082 -13.81631,48.91861 -13.81631,74.91041 v 0 c 0,6.64316 -4.929987,12.0274 -11.003752,12.0274 -6.072661,-6.6e-4 -10.995423,-5.38424 -10.995423,-12.0274 z"/>
+
+  <!-- Back mountain - softened opacity to feel distant -->
+  <polygon
+     points="275.75,341.25 117.31,341.25 196.525,209.217"
+     fill="#c4b0e8"
+     opacity="0.55"
+     transform="matrix(1.0869375,0,0,1.0869375,-30.606532,-8.5240641)"/>
+
+  <!-- Subtle mist/horizon line between layers -->
+  <line x1="60" y1="362" x2="452" y2="362" stroke="#c4b0e8" stroke-width="1" opacity="0.25"/>
+
+  <!-- Front mountain - pale lavender instead of pure white -->
+  <polygon
+     points="288.95,156.401 394.566,341.25 183.326,341.25"
+     fill="#ede8fa"
+     opacity="0.95"
+     transform="matrix(1.0869375,0,0,1.0869375,-28.605191,-8.5240641)"/>
+
+  <!-- Front mountain subtle overlay for depth -->
+  <polygon
+     points="288.95,156.401 394.566,341.25 183.326,341.25"
+     fill="#f4eeff"
+     opacity="0.18"
+     transform="matrix(1.1565763,0,0,1.1565763,-41.371791,-31.844676)"/>
+
+</svg>
