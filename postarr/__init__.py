@@ -228,8 +228,12 @@ def run_renamer_task(
                 from postarr.utils.database import Database
 
                 with app.app_context():
+                    postarr_logger.debug("Checking borders on first file in file cache")
                     db_instance = Database(db, postarr_logger)
                     first_file_settings = db_instance.get_first_file_settings()
+                    postarr_logger.trace(  # type: ignore[attr-defined]
+                        "Found first file setting: %s", first_file_settings
+                    )
                     if not first_file_settings:
                         return False
                     return (
@@ -361,7 +365,7 @@ def run_renamer_task(
                 try:
                     if check_borders():
                         postarr_logger.info(
-                            "Unmatched assets completed, starting border replacerr"
+                            "Unmatched assets completed, border setting change detected — starting border replacerr"
                         )
                         border_replacerr_future = executor.submit(
                             run_border_replacer_task, app
