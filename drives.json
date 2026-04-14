@@ -278,5 +278,12 @@
     "drive_id": "1R4tDkZVyG7iEbQ4DNbUPiPGfslPkcWmU",
     "type": "cl2k",
     "content": ["Homemade"]
+  },
+  {
+    "name": "cl2k-Bostafari",
+    "friendly_name": "Bostafari",
+    "drive_id": "1juZUnch1MLkZGknnZp6MuTwiTMw4f4WF",
+    "type": "cl2k",
+    "content": ["Homemade"]
   }
 ]
