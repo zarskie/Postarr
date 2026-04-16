@@ -242,7 +242,7 @@ def delete_poster():
             file_path.unlink()
             database.delete_file_cache_entry(str(file_path))
             database.add_unmatched_item(
-                type=data.get("type"),
+                item_type=data.get("type"),
                 title=data.get("fileName"),
                 arr_id=data.get("arrId"),
                 instance=data.get("instance"),
