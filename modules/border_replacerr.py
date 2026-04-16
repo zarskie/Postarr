@@ -7,9 +7,9 @@ from PIL import Image
 
 from modules.database_cache import Database
 from modules.logger import init_logger
+from modules.progress import ProgressState
 from modules.settings import Settings
 from modules.utils import hash_file, log_banner
-from progress import ProgressState
 
 
 class BorderReplacerr:

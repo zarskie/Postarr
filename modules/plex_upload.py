@@ -9,8 +9,8 @@ from modules import utils
 from modules.database_cache import Database
 from modules.logger import init_logger
 from modules.media import Radarr, Server, Sonarr
+from modules.progress import ProgressState
 from modules.settings import Settings
-from progress import ProgressState
 
 
 class PlexUploaderr:

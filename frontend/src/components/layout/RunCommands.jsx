@@ -6,6 +6,7 @@ import { useUnmatched } from "../../context/UnmatchedContext";
 import { isValidHex } from "../utils/validators";
 
 const RunCommands = () => {
+  const jobRunningRef = useRef(false);
   const { refreshFilePaths, bustPreview } = usePoster();
   const { refreshUnmatchedData } = useUnmatched();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -24,8 +25,7 @@ const RunCommands = () => {
   const [version, setVersion] = useState("");
   const [build, setBuild] = useState("");
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [jobId, setJobId] = useState(null);
-  const [progress, setProgress] = useState(null);
+  const [jobs, setJobs] = useState({});
   const [jobRunning, setJobRunning] = useState(null);
   const [errors, setErrors] = useState({});
   const [popupField, setPopupField] = useState(null);
@@ -33,6 +33,7 @@ const RunCommands = () => {
   const pollRef = useRef(null);
   const borderSettingRef = useRef(null);
   const customColorRef = useRef(null);
+  const activeJob = Object.entries(jobs)[0] ?? null;
 
   const fetchedModules = useRef(new Set());
 
@@ -108,15 +109,15 @@ const RunCommands = () => {
         body: JSON.stringify(payload),
       });
       const result = await response.json();
-      if (result.success && result.job_id) {
-        setErrors({});
-        setJobId(result.job_id);
-        setProgress(0);
-        startPolling(result.job_id);
-      } else if (result.success && !result.job_id) {
+      if (result.success && !result.job_id) {
         setJobRunning(null);
         alert(result.message);
-      } else if (!result.success) {
+      } else if (result.success) {
+        setErrors({});
+        jobRunningRef.current = true;
+        setJobRunning(true);
+        startPolling();
+      } else {
         setJobRunning(null);
         alert(result.message);
       }
@@ -126,24 +127,18 @@ const RunCommands = () => {
     }
   };
 
-  const startPolling = (id) => {
+  const startPolling = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`/api/poster-renamer/progress/${id}`);
+        const response = await fetch(`/api/poster-renamer/progress`);
         const result = await response.json();
-        if (result.error) {
+        setJobs(result);
+        if (Object.keys(result).length === 0 && jobRunningRef.current) {
           clearInterval(pollRef.current);
-          setJobId(null);
-          setProgress(null);
-          return;
-        }
-        setProgress(result.value);
-        if (result.state === "completed" || result.value === 100) {
-          clearInterval(pollRef.current);
+          jobRunningRef.current = false;
           setJobRunning(null);
           setTimeout(() => {
-            setJobId(null);
-            setProgress(null);
             refreshFilePaths();
             refreshUnmatchedData();
             bustPreview();
@@ -243,7 +238,7 @@ const RunCommands = () => {
   return (
     <>
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col justify-between overflow-hidden bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out ${isExpanded ? "translate-y-0" : jobId && progress != null ? "translate-y-[calc(100%-6rem)]" : "translate-y-[calc(100%-3rem)]"}`}
+        className={`fixed bottom-0 left-0 right-0 z-50 flex flex-col justify-between overflow-hidden bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out ${isExpanded ? "translate-y-0" : Object.keys(jobs).length > 0 ? "translate-y-[calc(100%-6rem)]" : "translate-y-[calc(100%-3rem)]"}`}
       >
         {isExpanded && (
           <>
@@ -647,19 +642,30 @@ const RunCommands = () => {
           </div>
         </div>
         <div
-          className={`overflow-hidden transition-all duration-300 ease-in-out ${jobId && progress !== null ? "max-h-12" : "max-h-0"}`}
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${activeJob ? "max-h-20" : "max-h-0"}`}
         >
           <div className="px-4 py-2">
+            <div className="mb-0.5 flex justify-between">
+              <span className="text-xs text-gray-400">{activeJob?.[0]}</span>
+              <span className="text-xs text-gray-400">
+                {activeJob?.[1].state}
+              </span>
+            </div>
             <div className="h-1.5 w-full rounded-full bg-gray-700">
               <div
                 className="h-1.5 rounded-full bg-blue-500 transition-all duration-300"
                 style={{
-                  width: `${progress}%`,
-                  background: "linear-gradient(to right, #3b82f6, #8b5cf6)",
+                  width: `${activeJob?.[1].value ?? 0}%`,
+                  background:
+                    activeJob?.[1].state === "Failed"
+                      ? "#ef4444"
+                      : "linear-gradient(to right, #3b82f6, #8b5cf6)",
                 }}
               />
             </div>
-            <span className="mt-1 text-xs text-gray-400">{progress}%</span>
+            <span className="mt-1 text-xs text-gray-400">
+              {activeJob?.[1].value ?? 0}%
+            </span>
           </div>
         </div>
       </div>

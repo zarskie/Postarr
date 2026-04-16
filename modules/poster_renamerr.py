@@ -14,8 +14,8 @@ from modules.border_replacerr import BorderReplacerr
 from modules.database_cache import Database
 from modules.logger import init_logger
 from modules.media import Radarr, Server, Sonarr
+from modules.progress import ProgressState
 from modules.settings import Settings
-from progress import ProgressState
 
 
 class PosterRenamerr:
@@ -1919,8 +1919,6 @@ class PosterRenamerr:
                     self.logger.error(
                         "Failed to create media dictionary for single item.. Exiting"
                     )
-                    if job_id and cb:
-                        cb(job_id, 95, ProgressState.IN_PROGRESS)
                     return
             else:
                 if self.only_unmatched and not single_item:
@@ -1961,8 +1959,6 @@ class PosterRenamerr:
                 if self.clean_assets:
                     self.clean_asset_dir(media_dict, collections_dict)
                 self.clean_cache()
-                if job_id and cb:
-                    cb(job_id, 95, ProgressState.IN_PROGRESS)
                 return
 
             utils.log_media_summary(
@@ -2017,8 +2013,6 @@ class PosterRenamerr:
                 self.clean_asset_dir(media_dict, collections_dict)
             self.clean_cache()
             self.logger.info("Finished Poster Renamerr")
-            if job_id and cb:
-                cb(job_id, 95, ProgressState.IN_PROGRESS)
             if single_item:
                 return media_dict
         except Exception as e:

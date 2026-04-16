@@ -7,10 +7,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from modules.logger import init_logger
+from modules.progress import ProgressState
 from modules.settings import Settings
 from modules.utils import log_banner
 from postarr.utils.webui_utils import sanitize_command_for_log
-from progress import ProgressState
 
 
 class DriveSync:

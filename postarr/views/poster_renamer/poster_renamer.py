@@ -12,6 +12,7 @@ from flask import (
     send_from_directory,
 )
 
+from modules.progress import progress_instance
 from modules.settings import Settings as module_settings
 from postarr import (
     db,
@@ -26,7 +27,6 @@ from postarr import (
 from postarr.models import CurrentJobs, JobHistory
 from postarr.utils.database import Database
 from postarr.utils.webhook_manager import WebhookManager
-from progress import progress_instance
 
 poster_renamer = Blueprint("poster_renamer", __name__)
 database = Database(db, postarr_logger)
@@ -764,6 +764,11 @@ def run_drive_sync():
 
     database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
+
+
+@poster_renamer.route("/progress", methods=["GET"])
+def get_all_progress():
+    return jsonify(progress_instance.get_all_progress())
 
 
 @poster_renamer.route("/progress/<job_id>", methods=["GET"])
