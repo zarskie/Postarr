@@ -1,22 +1,42 @@
 import os
 
-from flask_migrate import upgrade
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from flask_migrate import downgrade, upgrade
 
-from postarr import app
+from postarr import app, db
+
+DB_TARGET_REVISION = "0496f39b1e64"
 
 with app.app_context():
-    print("Applying database migrations...")
-    # Use absolute path from project root
     project_root = os.path.dirname(os.path.abspath(__file__))
     migrations_dir = os.path.join(project_root, "migrations")
 
-    print(f"Looking for migrations in: {migrations_dir}")
+    if not os.path.exists(migrations_dir):
+        raise FileNotFoundError(f"Migrations directory not found at {migrations_dir}")
 
-    if os.path.exists(migrations_dir):
-        upgrade(directory=migrations_dir)
-        print("Database migrations applied")
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", migrations_dir)
+    script = ScriptDirectory.from_config(alembic_cfg)
+
+    with db.engine.connect() as conn:
+        current_rev = MigrationContext.configure(conn).get_current_revision()
+
+    if current_rev == DB_TARGET_REVISION:
+        print("Database already at target revision, nothing to do")
     else:
-        print(f"ERROR: Migrations directory not found at {migrations_dir}")
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Directory contents: {os.listdir(project_root)}")
-        raise FileNotFoundError("Migrations directory not found")
+        revisions = list(reversed(list(script.walk_revisions("base", "heads"))))
+        rev_ids = [r.revision for r in revisions]
+
+        current_idx = rev_ids.index(current_rev) if current_rev in rev_ids else -1
+        target_idx = rev_ids.index(DB_TARGET_REVISION)
+
+        if target_idx > current_idx:
+            print(f"Upgrading database to {DB_TARGET_REVISION}")
+            upgrade(directory=migrations_dir, revision=DB_TARGET_REVISION)
+        else:
+            print(f"Downgrading database to {DB_TARGET_REVISION}")
+            downgrade(directory=migrations_dir, revision=DB_TARGET_REVISION)
+
+    print("Database sync complete")
