@@ -12,6 +12,7 @@ from flask import (
     send_from_directory,
 )
 
+from modules.progress import progress_instance
 from modules.settings import Settings as module_settings
 from postarr import (
     db,
@@ -26,7 +27,6 @@ from postarr import (
 from postarr.models import CurrentJobs, JobHistory
 from postarr.utils.database import Database
 from postarr.utils.webhook_manager import WebhookManager
-from progress import progress_instance
 
 poster_renamer = Blueprint("poster_renamer", __name__)
 database = Database(db, postarr_logger)
@@ -242,7 +242,7 @@ def delete_poster():
             file_path.unlink()
             database.delete_file_cache_entry(str(file_path))
             database.add_unmatched_item(
-                type=data.get("type"),
+                item_type=data.get("type"),
                 title=data.get("fileName"),
                 arr_id=data.get("arrId"),
                 instance=data.get("instance"),
@@ -540,12 +540,10 @@ def recieve_webhook():
 
     if run_single_item is None:
         postarr_logger.error("No settings found or run_single_item is not configured.")
-        database.add_job_to_history(job_name, "failed", "webhook")
         database.update_scheduled_job(job_name, None)
         return jsonify({"message": "Settings not configured"}), 500
     if not run_single_item:
         postarr_logger.debug("Single item processing is disabled in settings.")
-        database.add_job_to_history(job_name, "skipped (disabled)", "webhook")
         database.update_scheduled_job(job_name, None)
         return jsonify({"message": "Single item processing disabled"}), 403
 
@@ -555,7 +553,6 @@ def recieve_webhook():
         data = request.json
         if not data:
             postarr_logger.error("No data received in the webhook")
-            database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "No data received"}), 400
         postarr_logger.trace(  # type: ignore[attr-defined]
@@ -589,14 +586,12 @@ def recieve_webhook():
             postarr_logger.error(
                 "Item type 'movie' or 'series' not found in webhook data"
             )
-            database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
 
         item_id = data.get(item_type, {}).get("id", None)
         if not item_id:
             postarr_logger.error("Item ID not found for %s in webhook data", item_type)
-            database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
         item_id = int(item_id)
@@ -606,7 +601,6 @@ def recieve_webhook():
             postarr_logger.error(
                 "Instance name missing from webhook data, please configure in arr settings"
             )
-            database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
 
@@ -636,7 +630,6 @@ def recieve_webhook():
 
         if not item_path:
             postarr_logger.error("Item path missing from webhook data")
-            database.add_job_to_history(job_name, "failed", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Invalid webhook data"}), 400
 
@@ -654,20 +647,19 @@ def recieve_webhook():
         is_duplicate = webhook_manager.is_duplicate_webhook(new_item)
         if is_duplicate:
             postarr_logger.info("Duplicate webhook detected: %s", new_item["item_path"])
-            database.add_job_to_history(job_name, "skipped (dupe)", "webhook")
             database.update_scheduled_job(job_name, None)
             return jsonify({"message": "Skipped task (duplicate)"}), 200
         else:
-            result = run_renamer_task(flask_app, webhook_item=new_item)
+            result = run_renamer_task(
+                flask_app, webhook_item=new_item, run_type="webhook"
+            )
 
     except Exception as e:
         postarr_logger.error(
             "Error retrieving single item from webhook: %s", e, exc_info=True
         )
-        database.add_job_to_history(job_name, "failed", "webhook")
         return jsonify({"message": "Internal server error"}), 500
 
-    database.add_job_to_history(job_name, "success", "webhook")
     database.update_scheduled_job(job_name, None)
     return jsonify(result), 202 if result["success"] is not False else 500
 
@@ -678,13 +670,10 @@ def run_unmatched():
 
     data = request.get_json() or {}
     overrides = data.get("settings", {})
-    result = run_unmatched_assets_task(flask_app, overrides=overrides)
+    result = run_unmatched_assets_task(
+        flask_app, overrides=overrides, run_type="manual"
+    )
     job_name = module_settings.UNMATCHED_ASSETS.value
-
-    if result["success"] is False:
-        database.add_job_to_history(job_name, "failed", "manual")
-    else:
-        database.add_job_to_history(job_name, "success", "manual")
 
     database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
@@ -696,13 +685,10 @@ def run_renamer():
 
     data = request.get_json() or {}
     overrides = data.get("settings", {})
-    result = run_renamer_task(flask_app, overrides=overrides)
+    result = run_renamer_task(flask_app, overrides=overrides, run_type="manual")
     job_name = module_settings.POSTER_RENAMERR.value
 
-    if result["success"] is False:
-        database.add_job_to_history(job_name, "failed", "manual")
-    else:
-        database.add_job_to_history(job_name, "success", "manual")
+    database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
 
 
@@ -712,22 +698,11 @@ def run_border_replacer():
 
     data = request.get_json() or {}
     overrides = data.get("settings", {})
-    result = run_border_replacer_task(flask_app, overrides=overrides)
+    result = run_border_replacer_task(flask_app, overrides=overrides, run_type="manual")
     job_name = module_settings.BORDER_REPLACERR.value
 
-    if result["success"] is False:
-        database.add_job_to_history(job_name, "failed", "manual")
-        database.update_scheduled_job(job_name, None)
-        return jsonify(result), 500
-    elif result["job_id"] is None:
-        database.add_job_to_history(job_name, "success", "manual")
-        database.update_scheduled_job(job_name, None)
-        return jsonify(result), 200
-
-    database.add_job_to_history(job_name, "success", "manual")
     database.update_scheduled_job(job_name, None)
-
-    return jsonify(result), 202
+    return jsonify(result), 500 if result["success"] is False else 202
 
 
 @poster_renamer.route("/run-plex-upload-job", methods=["POST"])
@@ -737,12 +712,8 @@ def run_plex_upload():
     data = request.get_json() or {}
     overrides = data.get("settings", {})
 
-    result = run_plex_uploaderr_task(flask_app, overrides=overrides)
+    result = run_plex_uploaderr_task(flask_app, overrides=overrides, run_type="manual")
     job_name = module_settings.PLEX_UPLOADERR.value
-    if result["success"] is False:
-        database.add_job_to_history(job_name, "failed", "manual")
-    else:
-        database.add_job_to_history(job_name, "success", "manual")
 
     database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
@@ -755,15 +726,16 @@ def run_drive_sync():
     data = request.get_json() or {}
     overrides = data.get("settings", {})
 
-    result = run_drive_sync_task(flask_app, overrides=overrides)
+    result = run_drive_sync_task(flask_app, overrides=overrides, run_type="manual")
     job_name = module_settings.DRIVE_SYNC.value
-    if result["success"] is False:
-        database.add_job_to_history(job_name, "failed", "manual")
-    else:
-        database.add_job_to_history(job_name, "success", "manual")
 
     database.update_scheduled_job(job_name, None)
     return jsonify(result), 500 if result["success"] is False else 202
+
+
+@poster_renamer.route("/progress", methods=["GET"])
+def get_all_progress():
+    return jsonify(progress_instance.get_all_progress())
 
 
 @poster_renamer.route("/progress/<job_id>", methods=["GET"])

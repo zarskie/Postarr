@@ -25,17 +25,17 @@ class Database:
             if entry:
                 self.db.session.delete(entry)
                 self.db.session.commit()
-                self.logger.debug(f"Deleted poster: {file_path} from database")
+                self.logger.debug("Deleted poster: %s from database", file_path)
                 return True
             return False
         except SQLAlchemyError as e:
-            self.logger.error(f"Error deleting file cache entry: {e}")
+            self.logger.error("Error deleting file cache entry: %s", e)
             self.db.session.rollback()
             return False
 
     def add_unmatched_item(
         self,
-        type: str,
+        item_type: str,
         title: str,
         arr_id: int,
         instance: str,
@@ -46,7 +46,7 @@ class Database:
         season_number: int | None = None,
     ) -> bool:
         try:
-            if type == "movie":
+            if item_type == "movie":
                 existing = models.UnmatchedMovies.query.filter_by(title=title).first()
                 if existing is None:
                     item = models.UnmatchedMovies(
@@ -62,7 +62,7 @@ class Database:
                     existing.instance = instance
                     existing.imdb_id = imdb_id
                     existing.tmdb_id = tmdb_id
-            elif type == "show" or type == "season":
+            elif item_type == "show" or item_type == "season":
                 existing = models.UnmatchedShows.query.filter_by(title=title).first()
                 if existing is None:
                     show = models.UnmatchedShows(
@@ -92,7 +92,7 @@ class Database:
                         )
                         self.db.session.add(season)
 
-            elif type == "collection":
+            elif item_type == "collection":
                 existing = models.UnmatchedCollections.query.filter_by(
                     title=title
                 ).first()
@@ -100,14 +100,14 @@ class Database:
                     item = models.UnmatchedCollections(title=title)
                     self.db.session.add(item)
             else:
-                self.logger.error(f"Unknown type: {type}")
+                self.logger.error("Unknown item_type: %s", item_type)
                 return False
 
             self.db.session.commit()
             return True
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Error adding unmatched item: {e}")
+            self.logger.error("Error adding unmatched item: %s", e)
             self.db.session.rollback()
             return False
 
@@ -122,7 +122,7 @@ class Database:
             self.logger.debug("No files found in file cache")
             return None
         except SQLAlchemyError as e:
-            self.logger.error(f"Error querying file cache: {e}")
+            self.logger.error("Error querying file cache: %s", e)
 
     def update_scheduled_job(
         self, job_name: str, next_run: datetime | None = None
@@ -155,15 +155,22 @@ class Database:
                     next_run=next_run,
                 )
                 self.db.session.add(job)
-                self.logger.debug(f"Added new job: {job_name}")
+                self.logger.debug("Added new job: %s", job_name)
 
             self.db.session.commit()
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Error updating job history: {e}")
+            self.logger.error("Error updating job history: %s", e)
             self.db.session.rollback()
 
-    def add_job_to_history(self, job_name: str, status: str, run_type: str) -> None:
+    def add_job_to_history(
+        self,
+        job_id: str,
+        job_name: str,
+        status: str,
+        run_type: str,
+        message: str | None = None,
+    ) -> None:
         try:
             docker_timezone = os.getenv("TZ", "UTC")
             local_tz = pytz.timezone(docker_timezone)
@@ -171,45 +178,37 @@ class Database:
             current_time = datetime.now(local_tz)
 
             new_entry = models.JobHistory(
+                job_id=job_id,
                 job_name=job_name,
                 run_time=current_time,
                 status=status,
                 run_type=run_type,
+                message=message,
             )
             self.db.session.add(new_entry)
             self.db.session.commit()
             self._prune_old_job_entries(job_name)
             self.logger.debug(
-                f"Added job history entry for: {job_name} at {current_time}"
+                "Added job history entry for: %s at %s", job_id, current_time
+            )
+            self.logger.trace(  # type: ignore[attr-defined]
+                "Job history entry: job_id: %s, job_name: %s, run_time: %s, status: %s, run_type: %s, message: %s",
+                job_id,
+                job_name,
+                current_time,
+                status,
+                run_type,
+                message,
             )
 
         except SQLAlchemyError as e:
-            self.logger.error(f"Error adding job to history: {e}")
-            self.db.session.rollback()
-
-    def clear_scheduled_job(self, job_name: str) -> None:
-        try:
-            job = (
-                self.db.session.query(models.CurrentJobs)
-                .filter_by(job_name=job_name)
-                .first()
-            )
-            if job:
-                job.next_run = None
-                self.db.session.commit()
-                self.logger.info(f"Cleared next run time for job: {job_name}")
-            else:
-                self.logger.warning(
-                    f"Tried to clear next run for job '{job_name}', but no entry found."
-                )
-        except SQLAlchemyError as e:
-            self.logger.error(f"Error clearing scheduled job '{job_name}': {e}")
+            self.logger.error("Error adding job to history: %s", e)
             self.db.session.rollback()
 
     def _prune_old_job_entries(self, job_name: str) -> None:
         try:
             job_entries_subquery = (
-                select(models.JobHistory.id)
+                select(models.JobHistory.job_name)
                 .filter_by(job_name=job_name)
                 .order_by(desc(models.JobHistory.run_time))
                 .limit(10)
@@ -223,11 +222,11 @@ class Database:
                 .delete(synchronize_session=False)
             )
             if deleted_count:
-                self.logger.debug(
-                    f"Pruned {deleted_count} old job entries for {job_name}"
+                self.logger.trace(  # type: ignore[attr-defined]
+                    "Pruned %s old job entries for %s", deleted_count, job_name
                 )
 
             self.db.session.commit()
         except SQLAlchemyError as e:
-            self.logger.error(f"Error pruning old job history: {e}")
+            self.logger.error("Error pruning old job history: %s", e)
             self.db.session.rollback()

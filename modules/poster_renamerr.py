@@ -14,8 +14,9 @@ from modules.border_replacerr import BorderReplacerr
 from modules.database_cache import Database
 from modules.logger import init_logger
 from modules.media import Radarr, Server, Sonarr
+from modules.progress import ProgressState
+from modules.result import TaskResult
 from modules.settings import Settings
-from progress import ProgressState
 
 
 class PosterRenamerr:
@@ -73,8 +74,10 @@ class PosterRenamerr:
             )
 
         except Exception as e:
-            self.logger.exception("Failed to initialize PosterRenamerr")
-            raise e
+            self.logger.error(
+                "Failed to initialize poster-renamerr: %s", e, exc_info=True
+            )
+            raise
 
     image_exts = {".png", ".jpg", ".jpeg"}
 
@@ -1845,23 +1848,24 @@ class PosterRenamerr:
         asset_type: str,
         instances: dict,
         single_item: dict,
-    ) -> dict[str, list] | None:
+    ) -> TaskResult:
         media_dict = {"movies": [], "shows": []}
         instance_name = single_item.get("instance_name", "").lower()
         item_id = single_item.get("item_id")
         if not instance_name:
-            self.logger.error("Instance name is missing for movie item")
-            return None
+            msg = "Instance name is missing for movie item"
+            self.logger.error(msg)
+            return TaskResult(success=False, message=msg)
         if not item_id or not isinstance(item_id, int):
-            self.logger.error(
-                f"Invalid item ID: {item_id} for instance: {instance_name}"
-            )
-            return None
+            msg = f"Invalid item ID: {item_id} for instance: {instance_name}"
+            self.logger.error(msg)
+            return TaskResult(success=False, message=msg)
         normalized_instances = {key.lower(): value for key, value in instances.items()}
         arr_instance = normalized_instances.get(instance_name)
         if not arr_instance:
-            self.logger.error(f"Arr instance '{instance_name}' not found")
-            return None
+            msg = f"Arr instance '{instance_name}' not found"
+            self.logger.error(msg)
+            return TaskResult(success=False, message=msg)
         try:
             items = (
                 arr_instance.get_movie(item_id)
@@ -1869,31 +1873,31 @@ class PosterRenamerr:
                 else arr_instance.get_show(item_id)
             )
             if not items:
-                self.logger.error(
-                    f"{asset_type.capitalize()} with ID {item_id} not found in instance {instance_name}"
-                )
-                return None
+                msg = f"{asset_type.capitalize()} with ID {item_id} not found in instance {instance_name}"
+                self.logger.error(msg)
+                return TaskResult(success=False, message=msg)
 
             for item in items:
                 media_dict["movies" if asset_type == "movie" else "shows"].append(item)
             self.logger.debug(
                 "Fetched %s:\n%s:", json.dumps(items, indent=2, ensure_ascii=True)
             )
-            return media_dict
+            return TaskResult(success=True, data=media_dict)
 
         except Exception as e:
+            msg = f"Error fetching {asset_type} from instance {instance_name}: {e}"
             self.logger.error(
-                f"Error fetching {asset_type} from instance {instance_name}: {e}",
+                msg,
                 exc_info=True,
             )
-            return None
+            return TaskResult(success=False, message=msg)
 
     def run(
         self,
         cb: Callable[[str, int, ProgressState], None] | None = None,
         job_id: str | None = None,
         single_item: dict | None = None,
-    ) -> dict | None:
+    ) -> TaskResult:
         from modules import utils
 
         try:
@@ -1910,18 +1914,22 @@ class PosterRenamerr:
                 combined_instances_dict = self.radarr_instances | self.sonarr_instances
                 collections_dict = {"movies": [], "shows": []}
 
-                media_dict = self.handle_single_item(
+                result = self.handle_single_item(
                     asset_type,
                     combined_instances_dict,
                     single_item,
                 )
-                if not media_dict:
+                if not result.success:
                     self.logger.error(
-                        "Failed to create media dictionary for single item.. Exiting"
+                        "Failed to create media dictionary for single item: %s",
+                        result.message,
                     )
-                    if job_id and cb:
-                        cb(job_id, 95, ProgressState.IN_PROGRESS)
-                    return
+                    return result
+                media_dict = result.data
+                if media_dict is None:
+                    return TaskResult(
+                        success=False, message="handle_single_item returned no data"
+                    )
             else:
                 if self.only_unmatched and not single_item:
                     self.logger.debug(
@@ -1961,9 +1969,9 @@ class PosterRenamerr:
                 if self.clean_assets:
                     self.clean_asset_dir(media_dict, collections_dict)
                 self.clean_cache()
-                if job_id and cb:
-                    cb(job_id, 95, ProgressState.IN_PROGRESS)
-                return
+                return TaskResult(
+                    success=True, message="No data in media dict or collections dict"
+                )
 
             utils.log_media_summary(
                 self.logger,
@@ -2017,10 +2025,7 @@ class PosterRenamerr:
                 self.clean_asset_dir(media_dict, collections_dict)
             self.clean_cache()
             self.logger.info("Finished Poster Renamerr")
-            if job_id and cb:
-                cb(job_id, 95, ProgressState.IN_PROGRESS)
-            if single_item:
-                return media_dict
+            return TaskResult(success=True, data=media_dict if single_item else None)
         except Exception as e:
-            self.logger.critical(f"Unexpected error occurred: {e}", exc_info=True)
-            raise
+            self.logger.error("Unexpected error occurred: %s", e, exc_info=True)
+            return TaskResult(success=False, message=str(e))
