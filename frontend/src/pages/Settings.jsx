@@ -32,6 +32,15 @@ function getIntervalError(value) {
   return null;
 }
 
+const sanitizeUrl = (value) => {
+  try {
+    const parsed = new URL(value.trim());
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return value.trim();
+  }
+};
+
 function Settings() {
   const instanceNameRef = useRef(null);
   const urlRef = useRef(null);
@@ -128,6 +137,9 @@ function Settings() {
       setTimeout(() => setShowTestWarning(false), 3000);
       return;
     }
+    const sanitizedUrl = sanitizeUrl(url);
+    setUrl(sanitizedUrl);
+
     setErrors({});
     setIsLoading(true);
     try {
@@ -139,13 +151,13 @@ function Settings() {
             type: selectedType,
             id: editingInstance.id,
             instanceName: instanceName,
-            url: url,
+            url: sanitizedUrl,
             apiKey: apiKey,
           }
         : {
             type: selectedType,
             instanceName: instanceName,
-            url: url,
+            url: sanitizedUrl,
             apiKey: apiKey,
           };
       const response = await fetch(endpoint, {
