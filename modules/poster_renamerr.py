@@ -34,8 +34,7 @@ class PosterRenamerr:
             self.db = Database(self.logger)
             self.target_path = Path(payload.target_path)
             self.backup_dir = Path(Settings.ORIGINAL_POSTERS.value)
-            if not self.backup_dir.exists():
-                self.backup_dir.mkdir()
+            self.backup_dir.mkdir(parents=True, exist_ok=True)
             self.source_directories = payload.source_dirs
             self.asset_folders = payload.asset_folders
             self.clean_assets = payload.clean_assets
