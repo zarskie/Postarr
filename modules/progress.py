@@ -46,7 +46,9 @@ class Progress:
         with self._lock:
             self._update(job_id, ProgressState.IN_PROGRESS, 0)
 
-    def fail_job(self, logger: Logger, e: Exception, job_id: str) -> None:
+    def fail_job(
+        self, logger: Logger, job_id: str, e: Exception | str | None = None
+    ) -> None:
         with self._lock:
             self._update(job_id, ProgressState.FAILED, 0)
             logger.error("'%s' job failed with error: %s", job_id, e)

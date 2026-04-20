@@ -163,7 +163,14 @@ class Database:
             self.logger.error("Error updating job history: %s", e)
             self.db.session.rollback()
 
-    def add_job_to_history(self, job_id: str, status: str, run_type: str) -> None:
+    def add_job_to_history(
+        self,
+        job_id: str,
+        job_name: str,
+        status: str,
+        run_type: str,
+        message: str | None = None,
+    ) -> None:
         try:
             docker_timezone = os.getenv("TZ", "UTC")
             local_tz = pytz.timezone(docker_timezone)
@@ -172,15 +179,26 @@ class Database:
 
             new_entry = models.JobHistory(
                 job_id=job_id,
+                job_name=job_name,
                 run_time=current_time,
                 status=status,
                 run_type=run_type,
+                message=message,
             )
             self.db.session.add(new_entry)
             self.db.session.commit()
-            self._prune_old_job_entries(job_id)
-            self.logger.trace(  # type: ignore[attr-defined]
+            self._prune_old_job_entries(job_name)
+            self.logger.debug(
                 "Added job history entry for: %s at %s", job_id, current_time
+            )
+            self.logger.trace(  # type: ignore[attr-defined]
+                "Job history entry: job_id: %s, job_name: %s, run_time: %s, status: %s, run_type: %s, message: %s",
+                job_id,
+                job_name,
+                current_time,
+                status,
+                run_type,
+                message,
             )
 
         except SQLAlchemyError as e:
@@ -190,7 +208,7 @@ class Database:
     def _prune_old_job_entries(self, job_name: str) -> None:
         try:
             job_entries_subquery = (
-                select(models.JobHistory.id)
+                select(models.JobHistory.job_name)
                 .filter_by(job_name=job_name)
                 .order_by(desc(models.JobHistory.run_time))
                 .limit(10)
@@ -204,7 +222,7 @@ class Database:
                 .delete(synchronize_session=False)
             )
             if deleted_count:
-                self.logger.debug(
+                self.logger.trace(  # type: ignore[attr-defined]
                     "Pruned %s old job entries for %s", deleted_count, job_name
                 )
 
