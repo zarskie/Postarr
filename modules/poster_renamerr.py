@@ -878,6 +878,8 @@ class PosterRenamerr:
             series_titles_we_have_seen = set()
             for file in sorted(files):
                 name_without_extension = file.stem.strip()
+                # get all the media item IDs
+                all_item_ids = []
 
                 file_ref = {"file": file, "file_count": file_count}
                 file_count += 1
@@ -892,25 +894,36 @@ class PosterRenamerr:
                     # if a year was not present, we have a collection
                     asset_type = "collections"
                 else:
-                    # check for season info in the name and then add prefix to the Set
-                    name_without_season = re.sub(
-                        r" - (specials|season (\d+))$",
-                        "",
-                        name_without_extension,
-                        flags=re.IGNORECASE
-                    ).strip()
+                    # can check for the precense of a tvdb id here - and that should mean it's a show
+                    has_tvdb_id = False
+                    all_item_ids = self.extract_all_media_item_ids(name_without_extension.lower())
+                    for item_id_source, item_id in all_item_ids:
+                        if item_id_source.lower() == "tvdb":
+                            has_tvdb_id = True
+                            break
 
-                    # if our regex removed something then we know we had season info and is a show
-                    if len(name_without_extension) != len(name_without_season):
+                    if has_tvdb_id:
                         asset_type = "shows"
-                        series_titles_we_have_seen.add(name_without_season)
-                    # we didn't remove anything - so it could be a movie or series poster.
-                    # See if the title is in our set of shows we've already seen
-                    elif name_without_extension in series_titles_we_have_seen:
-                        asset_type = "shows"
-                    # otherwise it's a movie
                     else:
-                        asset_type = "movies"
+                        # check for season info in the name and then add prefix to the Set
+                        name_without_season = re.sub(
+                            r" - (specials|season (\d+))$",
+                            "",
+                            name_without_extension,
+                            flags=re.IGNORECASE
+                        ).strip()
+
+                        # if our regex removed something then we know we had season info and is a show
+                        if len(name_without_extension) != len(name_without_season):
+                            asset_type = "shows"
+                            series_titles_we_have_seen.add(name_without_season)
+                        # we didn't remove anything - so it could be a movie or series poster.
+                        # See if the title is in our set of shows we've already seen
+                        elif name_without_extension in series_titles_we_have_seen:
+                            asset_type = "shows"
+                        # otherwise it's a movie
+                        else:
+                            asset_type = "movies"
 
                 # add to the appropriate prefix index based on the asset type
                 self.build_search_index(
@@ -921,8 +934,6 @@ class PosterRenamerr:
                     debug_items=None,
                 )
 
-                # get all the media item IDs
-                all_item_ids = self.extract_all_media_item_ids(name_without_extension.lower())
                 for item_id_source, item_id in all_item_ids:
                     self.build_item_id_index(prefix_index, asset_type, item_id_source, item_id, file_ref, self.logger)
 
