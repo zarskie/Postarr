@@ -1,3 +1,4 @@
+import heapq
 import json
 import logging
 import os
@@ -83,6 +84,7 @@ class PosterRenamerr:
     # only need to compile this once
     poster_id_pattern = re.compile(r"[\[\{](imdb|tmdb|tvdb)-([a-zA-Z0-9]+)[\}\]]")
     year_pattern = re.compile(r"\b(19|20)\d{2}\b")
+    year_regex = re.compile(r"\s?\((\d{4})\)(?!.*Collection).*")
 
     # length to use as a prefix.  anything shorter than this will be used as-is
     prefix_length = 3
@@ -107,6 +109,34 @@ class PosterRenamerr:
         common_words = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to"}
         # maybe for collections we need to _not_ do this? i.e. 'FX.jpg vs. FX Collection' - only an issue when a collection name is 1 or 2 chars...
         return "".join(word for word in name.split() if word not in common_words)
+
+
+    def build_item_id_index(self, prefix_index, asset_type, item_id_source, item_id, file_ref, logger):
+        if 'ids' not in prefix_index:
+            prefix_index['ids'] = {}
+        if asset_type not in prefix_index['ids']:
+            prefix_index['ids'][asset_type] = {}
+        if item_id_source not in prefix_index['ids'][asset_type]:
+            prefix_index['ids'][asset_type][item_id_source] = {}
+        if item_id not in prefix_index['ids'][asset_type][item_id_source]:
+            prefix_index['ids'][asset_type][item_id_source][item_id] = []
+        prefix_index['ids'][asset_type][item_id_source][item_id].append(file_ref)
+
+    def search_item_id_index(self, prefix_index, asset_type,item_id_source, item_id, logger):
+        if 'ids' not in prefix_index:
+            return None
+        if asset_type not in prefix_index['ids']:
+            return None
+        if item_id_source not in prefix_index['ids'][asset_type]:
+            return None
+        if item_id not in prefix_index['ids'][asset_type][item_id_source]:
+            return None
+        return prefix_index['ids'][asset_type][item_id_source][item_id]
+
+    def extract_all_media_item_ids(self, lowered_orig_string):
+        all_item_ids = self.poster_id_pattern.findall(lowered_orig_string)
+        return all_item_ids
+
 
     def build_search_index(
         self, prefix_index, title, asset, asset_type, debug_items=None
@@ -843,20 +873,70 @@ class PosterRenamerr:
     def index_all_asset_files(self, source_files, prefix_index):
         # total_directories = len(source_files)
         items_indexed = 0
+        file_count = 0
         for _, files in source_files.items():
-            for file in files:
-                name_without_extension = file.stem
-                # could add an id --> file lookup here :-)
-                # not building an asset type index here yet since we process assets on-the-fly
-                # everything will be placed into the 'all' asset type for now
-                file_ref = {"file": file}
+            series_titles_we_have_seen = set()
+            for file in sorted(files):
+                name_without_extension = file.stem.strip()
+                # get all the media item IDs
+                all_item_ids = []
+
+                file_ref = {"file": file, "file_count": file_count}
+                file_count += 1
+                try:
+                    year = int(self.year_regex.search(name_without_extension).group(1))
+                except Exception:
+                    year = None
+                asset_type = "movies"
+
+                # if a year was not present, we have a collection
+                if not year:
+                    # if a year was not present, we have a collection
+                    asset_type = "collections"
+                else:
+                    # can check for the precense of a tvdb id here - and that should mean it's a show
+                    has_tvdb_id = False
+                    all_item_ids = self.extract_all_media_item_ids(name_without_extension.lower())
+                    for item_id_source, item_id in all_item_ids:
+                        if item_id_source.lower() == "tvdb":
+                            has_tvdb_id = True
+                            break
+
+                    if has_tvdb_id:
+                        asset_type = "shows"
+                    else:
+                        # check for season info in the name and then add prefix to the Set
+                        name_without_season = re.sub(
+                            r" - (specials|season (\d+))$",
+                            "",
+                            name_without_extension,
+                            flags=re.IGNORECASE
+                        ).strip()
+
+                        # if our regex removed something then we know we had season info and is a show
+                        if len(name_without_extension) != len(name_without_season):
+                            asset_type = "shows"
+                            series_titles_we_have_seen.add(name_without_season)
+                        # we didn't remove anything - so it could be a movie or series poster.
+                        # See if the title is in our set of shows we've already seen
+                        elif name_without_extension in series_titles_we_have_seen:
+                            asset_type = "shows"
+                        # otherwise it's a movie
+                        else:
+                            asset_type = "movies"
+
+                # add to the appropriate prefix index based on the asset type
                 self.build_search_index(
                     prefix_index,
                     name_without_extension,
                     file_ref,
-                    "all",
+                    asset_type,
                     debug_items=None,
                 )
+
+                for item_id_source, item_id in all_item_ids:
+                    self.build_item_id_index(prefix_index, asset_type, item_id_source, item_id, file_ref, self.logger)
+
                 items_indexed += 1
         self.logger.info(
             f"All directories processed and index is built. Found {items_indexed} posters"
@@ -1051,6 +1131,25 @@ class PosterRenamerr:
             alt_titles_clean = []
         return alt_titles_clean
 
+    def merge_sorted_unique(self, lists, sort_key):
+        seen_refs = set()
+        seen_counts = set()
+        result = []
+
+        def keyed(lst, idx):
+            for item in lst:
+                yield (item[sort_key], idx, item)
+
+        for _, _, item in heapq.merge(*[keyed(l,i) for i, l in enumerate(lists)]):
+            item_ref = item['file']
+            item_count = item['file_count']
+            if item_ref not in seen_refs and item_count not in seen_counts:
+                seen_refs.add(item_ref)
+                seen_counts.add(item_count)
+                result.append(item)
+
+        return result
+
     def find_series_matches(self, prefix_index, search_title, show_data, dups_dict):
         matched_files = {
             "shows": {},
@@ -1077,20 +1176,23 @@ class PosterRenamerr:
                 handler.setLevel(logging.DEBUG)
 
         search_matches = self.search_matches(
-            prefix_index, search_title, "all", debug_search=False
+            prefix_index, search_title, "shows", debug_search=False
         )
         # self.logger.debug(
         #     f"SEARCH (shows): matched assets for {show_data.get('title', '')} with query {search_title}"
         # )
         # self.logger.debug(f"show_data: {show_data}")
-        # self.logger.debug(f"search_matches: {search_matches}")
+
+        final_matches = self.combine_name_matches_with_id_matches(prefix_index, "shows", show_name, media_object, search_matches)
+
+        # self.logger.debug(f"final_matches: {final_matches}")
 
         # really inefficient for now but I have to ensure we loop over _ever single match since seasons are calculated on the fly based on the files
         # this is expensive - especially since we don't remove items from the match list (though we could....)
         # the better solution is not to remove things but instead to pre-calculate seasons based on the asset files and then when you match you get everything in one shot
         matched_entire_show = False
         matched_poster = False
-        for search_match in search_matches:
+        for search_match in final_matches:
             self.compute_asset_values_for_match(search_match)
             file = search_match["file"]
             extra_sanitized_no_spaces_no_collection = search_match[
@@ -1203,6 +1305,32 @@ class PosterRenamerr:
 
         return matched_files
 
+    def combine_name_matches_with_id_matches(self, prefix_index, asset_type, search_title, media_object, search_matches):
+        id_based_asset_matches = []
+        if media_object['media_ids']:
+            for item_id_source, item_id in media_object['media_ids'].items():
+                id_asset_match = self.search_item_id_index(prefix_index, asset_type, item_id_source, item_id, self.logger)
+                if id_asset_match:
+                    self.logger.debug(f"found an id match for {asset_type} {search_title}")# can short circuit if a full season is matched.
+                    id_based_asset_matches.append(id_asset_match)
+
+        id_1_based_matches = []
+        id_2_based_matches = []
+        id_3_based_matches = []
+
+        if id_based_asset_matches:
+            id_1_based_matches = id_based_asset_matches[0]
+            if len(id_based_asset_matches) > 1:
+                id_2_based_matches = id_based_asset_matches[1]
+                if len(id_based_asset_matches) >2:
+                    id_3_based_matches = id_based_asset_matches[2]
+
+        if (id_1_based_matches or id_2_based_matches or id_3_based_matches):
+            final_matches = self.merge_sorted_unique([search_matches, id_1_based_matches, id_2_based_matches, id_3_based_matches], sort_key='file_count')
+        else:
+            final_matches = search_matches
+        return final_matches
+
     def check_debug_mode(self, media_object):
         enable_debug = False
         search_debug_string = os.environ.get("SEARCH_DEBUG", None)
@@ -1243,14 +1371,16 @@ class PosterRenamerr:
                 handler.setLevel(logging.DEBUG)
 
         search_matches = self.search_matches(
-            prefix_index, search_title, "all", debug_search=False
+            prefix_index, search_title, "movies", debug_search=False
         )
         # self.logger.debug(
         #     f"SEARCH (movies): matched assets for {movie_data.get('title', '')} with query {search_title}"
         # )
-        # self.logger.debug(search_matches)
 
-        for search_match in search_matches:
+        final_matches = self.combine_name_matches_with_id_matches(prefix_index, "movies", movie_title, media_object, search_matches)
+        # self.logger.debug(f"final_matches: {final_matches}")
+
+        for search_match in final_matches:
             self.compute_asset_values_for_match(search_match)
             file = search_match["file"]
             poster_file_year = search_match["item_year"]
@@ -1319,7 +1449,7 @@ class PosterRenamerr:
         search_matches = self.search_matches(
             prefix_index,
             collection_name_to_search,
-            "all",
+            "collections",
             debug_search=False,
         )
         # self.logger.debug(
