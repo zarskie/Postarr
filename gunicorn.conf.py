@@ -8,7 +8,6 @@ def on_starting(server):
         version = os.getenv("VERSION", "dev")
         postarr_logger.info(f"Starting Postarr v{version}")
         postarr_logger.info("Initializing database schema...")
-        db.create_all()
         with db.engine.connect() as conn:
             conn.execute(db.text("PRAGMA journal_mode=WAL;"))
         postarr_logger.info("WAL mode enabled for SQLite database")
