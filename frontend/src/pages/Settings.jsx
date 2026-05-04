@@ -1252,10 +1252,12 @@ function Settings() {
                           </span>
                         )}
                     </div>
-                    <span className="text-xs text-gray-400">
-                      Must match: *arr &rarr; General &rarr; Advanced &rarr;
-                      Instance Name
-                    </span>
+                    {selectedType !== "plex" && (
+                      <span className="text-xs text-gray-400">
+                        Must match: *arr &rarr; General &rarr; Advanced &rarr;
+                        Instance Name
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
