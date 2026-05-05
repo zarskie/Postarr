@@ -17,6 +17,7 @@ from modules.media import Radarr, Server, Sonarr
 from modules.progress import ProgressState
 from modules.result import TaskResult
 from modules.settings import Settings
+from postarr.notifications import NotificationEvent, NotificationModule, notify_all
 
 
 class PosterRenamerr:
@@ -1448,10 +1449,9 @@ class PosterRenamerr:
         imdb_id: str | None = None,
         tmdb_id: str | None = None,
         tvdb_id: str | None = None,
-    ) -> bool:
+    ) -> dict | None:
         trace = self.logger.trace  # type: ignore[attr-defined]
         temp_path = None
-        copied = False
         target_path = target_dir / new_file_name
         if backup_dir:
             backup_path = backup_dir / new_file_name
@@ -1560,7 +1560,7 @@ class PosterRenamerr:
                 self.logger.debug(f"Skipping unchanged file: {file_path}")
                 if webhook_run:
                     self.db.update_webhook_flag(str(target_path), True)
-                return False
+                return None
 
         if not backup_dir:
             backup_dir = self.backup_dir
@@ -1594,7 +1594,7 @@ class PosterRenamerr:
                     self.logger.error(
                         f"Unsupported border setting: {self.border_setting}"
                     )
-                    return False
+                    return None
 
                 temp_path = target_dir / f"temp_{new_file_name}"
                 final_image.save(temp_path)
@@ -1621,7 +1621,6 @@ class PosterRenamerr:
         try:
             shutil.copy2(file_path, target_path)
             self.logger.info(f"Copied and renamed: {current_source} ⟶ {target_path}")
-            copied = True
             if cached_file:
                 self.db.update_file(
                     file_hash=file_hash,
@@ -1658,11 +1657,14 @@ class PosterRenamerr:
                 self.logger.debug(f"Adding new file to database cache: {target_path}")
         except Exception as e:
             self.logger.error(f"Error copying file {file_path}: {e}")
-            return False
+            return None
 
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
-        return copied
+        return {
+            "from": "/".join(Path(current_source).parts[-2:]),
+            "to": str(target_path),
+        }
 
     def setup_dirs(
         self,
@@ -1703,6 +1705,9 @@ class PosterRenamerr:
         job_id: str | None = None,
         webhook_run: bool | None = None,
     ) -> None:
+        movie_results = []
+        series_results = []
+        collection_results = []
         matched_movies = len(matched_files.get("movies", []))
         matched_shows = len(matched_files.get("shows", []))
         matched_collections = len(matched_files.get("collections", []))
@@ -1721,7 +1726,7 @@ class PosterRenamerr:
                         "movie", movie_folder, file_path
                     )
                     if target_dir and file_name_format:
-                        copied = self._copy_file(
+                        result = self._copy_file(
                             file_path,
                             key,
                             target_dir,
@@ -1736,8 +1741,9 @@ class PosterRenamerr:
                             imdb_id=movie_data.get("imdb_id", None),
                             tmdb_id=movie_data.get("tmdb_id", None),
                         )
-                        if copied:
+                        if result:
                             copied_movies += 1
+                            movie_results.append(result)
                     else:
                         self.logger.warning(
                             f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{movie_title}'. Skipping.."
@@ -1757,7 +1763,7 @@ class PosterRenamerr:
                     )
 
                     if target_dir and file_name_format:
-                        copied = self._copy_file(
+                        result = self._copy_file(
                             file_path,
                             key,
                             target_dir,
@@ -1766,8 +1772,9 @@ class PosterRenamerr:
                             self.replace_border,
                             webhook_run=webhook_run,
                         )
-                        if copied:
+                        if result:
                             copied_collections += 1
+                            collection_results.append(result)
                     else:
                         self.logger.warning(
                             f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{collection}'. Skipping.."
@@ -1811,7 +1818,7 @@ class PosterRenamerr:
                         )
 
                     if target_dir and file_name_format:
-                        copied = self._copy_file(
+                        result = self._copy_file(
                             file_path,
                             key,
                             target_dir,
@@ -1827,8 +1834,9 @@ class PosterRenamerr:
                             tmdb_id=show_data.get("tmdb_id", None),
                             tvdb_id=show_data.get("tvdb_id", None),
                         )
-                        if copied:
+                        if result:
                             copied_series += 1
+                            series_results.append(result)
                     else:
                         self.logger.warning(
                             f"Target dir: '{target_dir}' or file_name_format: '{file_name_format}' missing for item '{show_name}'. Skipping.."
@@ -1840,6 +1848,18 @@ class PosterRenamerr:
                         cb(job_id, 80 + progress, ProgressState.IN_PROGRESS)
         self.logger.info(
             f"Copied and renamed {copied_movies} movie(s), {copied_collections} collection(s), and {copied_series} series files"
+        )
+        notify_all(
+            NotificationEvent.RENAME_SUMMARY,
+            module=NotificationModule.POSTER_RENAMERR.value,
+            color=3447003,
+            asset_folders=self.asset_folders,
+            copied_movies=copied_movies,
+            copied_collections=copied_collections,
+            copied_series=copied_series,
+            movie_results=movie_results,
+            collection_results=collection_results,
+            series_results=series_results,
         )
 
     def handle_single_item(
@@ -1900,6 +1920,18 @@ class PosterRenamerr:
         from modules import utils
 
         try:
+            if single_item:
+                item_path = single_item.get("item_path", "")
+                item_name = Path(item_path).name if item_path else "Unknown"
+                notification_message = f"Sync started for: {item_name}"
+            else:
+                notification_message = "Sync started"
+            notify_all(
+                NotificationEvent.RUN_START,
+                module=NotificationModule.POSTER_RENAMERR.value,
+                color=3447003,
+                message=notification_message,
+            )
             unmatched_media_dict = {}
             unmatched_collections_dict = {}
             media_dict = {}
@@ -1923,9 +1955,21 @@ class PosterRenamerr:
                         "Failed to create media dictionary for single item: %s",
                         result.message,
                     )
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.POSTER_RENAMERR.value,
+                        color=15158332,
+                        message=result.message,
+                    )
                     return result
                 media_dict = result.data
                 if media_dict is None:
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.POSTER_RENAMERR.value,
+                        color=15158332,
+                        message="handle_single_item returned no data",
+                    )
                     return TaskResult(
                         success=False, message="handle_single_item returned no data"
                     )
@@ -2024,7 +2068,19 @@ class PosterRenamerr:
                 self.clean_asset_dir(media_dict, collections_dict)
             self.clean_cache()
             self.logger.info("Finished Poster Renamerr")
+            notify_all(
+                NotificationEvent.RUN_END,
+                module=NotificationModule.POSTER_RENAMERR.value,
+                color=3447003,
+                message="Sync Completed",
+            )
             return TaskResult(success=True, data=media_dict if single_item else None)
         except Exception as e:
             self.logger.error("Unexpected error occurred: %s", e, exc_info=True)
+            notify_all(
+                NotificationEvent.RUN_ERROR,
+                module=NotificationModule.POSTER_RENAMERR.value,
+                color=15158332,
+                message=f"Unexpected error occured: {e}",
+            )
             return TaskResult(success=False, message=str(e))

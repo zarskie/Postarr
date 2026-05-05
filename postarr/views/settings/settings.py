@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -135,6 +136,145 @@ def add_instance():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+@settings.route("/add-notifier", methods=["POST"])
+def add_notifier():
+    try:
+        data = request.get_json()
+        url = data.get("url").strip()
+        notifier_type = data.get("type").strip()
+        if not url or not notifier_type:
+            return jsonify({"success": False, "message": "Missing required fields"})
+
+        existing = models.Notifier.query.filter(models.Notifier.url == url).first()
+        if existing:
+            return jsonify(
+                {"success": False, "message": "Webhook URL already exists"}
+            ), 400
+
+        new_notifier = models.Notifier(
+            type=notifier_type,
+            url=url,
+        )
+        db.session.add(new_notifier)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Notifier added successfully!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/update-notifier", methods=["PUT"])
+def update_notifier():
+    try:
+        data = request.get_json()
+        notifier_id = data.get("id")
+        url = data.get("url")
+        enabled = data.get("enabled", True)
+        if not url:
+            return jsonify(
+                {"success": False, "message": "Missing required fields"}
+            ), 400
+        notifier = models.Notifier.query.get(notifier_id)
+        if not notifier:
+            return jsonify({"success": False, "message": "Notifier not found"}), 404
+        notifier.url = url
+        notifier.enabled = int(enabled)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Notifier updated successfully!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/get-notifiers", methods=["GET"])
+def get_notifiers():
+    try:
+        notifiers = models.Notifier.query.all()
+        return jsonify(
+            {
+                "success": True,
+                "notifiers": [
+                    {
+                        "id": n.id,
+                        "type": n.type,
+                        "url": n.url,
+                        "enabled": bool(n.enabled),
+                    }
+                    for n in notifiers
+                ],
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/test-notifier", methods=["POST"])
+def test_notifier():
+    try:
+        data = request.get_json()
+        url = data.get("url", "").strip()
+        notifier_type = data.get("type", "").strip()
+        version = os.environ.get("VERSION", "dev")
+        if not url or not notifier_type:
+            return jsonify(
+                {"success": False, "message": "Missing required fields"}
+            ), 400
+        if notifier_type == "discord":
+            payload = {
+                "embeds": [
+                    {
+                        "title": "Postarr — Test OK",
+                        "description": "Notifications are configured correctly.",
+                        "color": 3066993,
+                        "footer": {"text": f"Postarr v{version} by monster"},
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ]
+            }
+            r = requests.post(url, json=payload, timeout=5)
+            r.raise_for_status()
+            return jsonify({"success": True, "message": "Test notification sent!"})
+        return jsonify(
+            {"success": False, "message": f"Unsupported notfier type: {notifier_type}"}
+        ), 400
+    except requests.exceptions.RequestException as e:
+        return jsonify(
+            {"success": False, "message": f"Failed to send notification: {str(e)}"}
+        ), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/notifier-events", methods=["GET"])
+def get_notifier_events():
+    try:
+        module = request.args.get("module", "").strip()
+        if not module:
+            return jsonify({"success": False, "message": "Missing module"}), 400
+        rows = models.NotifierEvent.query.filter_by(module=module).all()
+        return jsonify({"success": True, "events": [r.event for r in rows]})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/save-notifier-events", methods=["PUT"])
+def save_notifier_events():
+    try:
+        data = request.get_json()
+        module = data.get("module", "").strip()
+        events = data.get("events", [])
+        if not module:
+            return jsonify({"success": False, "message": "Missing module"}), 400
+        models.NotifierEvent.query.filter_by(module=module).delete()
+        for event in events:
+            db.session.add(models.NotifierEvent(event=event, module=module))
+        db.session.commit()
+        return jsonify({"success": True, "message": "Events saved successfully!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @settings.route("/add-drive", methods=["POST"])
 def add_drive():
     try:
@@ -176,6 +316,25 @@ def add_drive():
         db.session.add(new_gdrive)
         db.session.commit()
         return jsonify({"success": True, "message": "Drive added successfully!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@settings.route("/delete-notifier", methods=["DELETE"])
+def delete_notifier():
+    try:
+        data = request.get_json()
+        notifier_id = data.get("id")
+        if not notifier_id:
+            return jsonify({"success": False, "message": "Missing notifier ID"}), 400
+
+        notifier = models.Notifier.query.get(notifier_id)
+        if not notifier:
+            return jsonify({"success": False, "message": "Notifier not found"}), 404
+        db.session.delete(notifier)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Notifier deleted successfully!"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
