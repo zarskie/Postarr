@@ -14,6 +14,7 @@ from modules.progress import ProgressState
 from modules.settings import Settings
 from modules.utils import remove_chars
 from Payloads.unmatched_assets_payload import Payload
+from postarr.notifications import NotificationEvent, NotificationModule, notify_all
 
 
 class UnmatchedAssets:
@@ -480,6 +481,11 @@ class UnmatchedAssets:
         from modules import utils
 
         try:
+            notify_all(
+                NotificationEvent.RUN_START,
+                module=NotificationModule.UNMATCHED_ASSETS.value,
+                color=10181046,
+            )
             utils.log_banner(self.logger, Settings.UNMATCHED_ASSETS.value, job_id)
             self.logger.debug("Asset folder configuration: %s", self.asset_folders)
             self.db.cleanup_orphaned_seasons()
@@ -536,10 +542,23 @@ class UnmatchedAssets:
                 asset_count_dict, unmatched_assets, self.show_all_unmatched
             )
             self.logger.info("Finished unmatched assets")
+            notify_all(
+                NotificationEvent.RUN_END,
+                module=NotificationModule.UNMATCHED_ASSETS.value,
+                color=10181046,
+            )
             if job_id and cb:
                 cb(job_id, 100, ProgressState.COMPLETED)
         except Exception as e:
-            self.logger.exception("Failed to run UnmatchedAssets")
+            notify_all(
+                NotificationEvent.RUN_ERROR,
+                module=NotificationModule.UNMATCHED_ASSETS.value,
+                color=15158332,
+                message=f"Unmatched assets encountered an error: {e}",
+            )
+            self.logger.error(
+                "Unmatched assets encountered an error: %s", e, exc_info=True
+            )
             if job_id and cb:
                 cb(job_id, 100, ProgressState.COMPLETED)
             raise e

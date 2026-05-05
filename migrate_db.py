@@ -7,7 +7,7 @@ from flask_migrate import downgrade, upgrade
 
 from postarr import app, db
 
-DB_TARGET_REVISION = "0496f39b1e64"
+DB_TARGET_REVISION = "63093756b57a"
 
 with app.app_context():
     project_root = os.path.dirname(os.path.abspath(__file__))

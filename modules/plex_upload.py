@@ -11,6 +11,7 @@ from modules.logger import init_logger
 from modules.media import Radarr, Server, Sonarr
 from modules.progress import ProgressState
 from modules.settings import Settings
+from postarr.notifications import NotificationEvent, NotificationModule, notify_all
 
 
 class PlexUploaderr:
@@ -615,7 +616,7 @@ class PlexUploaderr:
 
                 if found_item:
                     self.logger.info("Item found successfully. Exiting search.")
-                    return
+                    return True
 
             if attempt < max_retries:
                 self.logger.info("Item not found. Retrying in %s seconds.", retry_delay)
@@ -626,12 +627,18 @@ class PlexUploaderr:
                     media_title,
                     max_retries,
                 )
+                return False
 
     def upload_posters_full(
         self,
         cb: Callable[[str, int, ProgressState], None] | None = None,
         job_id: str | None = None,
     ):
+        notify_all(
+            NotificationEvent.RUN_START,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=16776960,
+        )
         plex_media_dict = {}
         self.upload_stats = {}
 
@@ -709,6 +716,17 @@ class PlexUploaderr:
                         exc_info=True,
                     )
                     plex_media_dict[name] = {"all_movies": {}, "all_shows": {}}
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=15158332,
+                        message=f"Error retrieving media for Plex instance {name}: {e}",
+                    )
+                    notify_all(
+                        NotificationEvent.RUN_END,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=16776960,
+                    )
                     raise
 
             summary = {
@@ -734,6 +752,17 @@ class PlexUploaderr:
                     item_dict["all_movies"]["movie"] = updated_movie_dict
                     item_dict["all_shows"]["show"] = updated_show_dict
                 except Exception as e:
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=15158332,
+                        message=f"Error creating updated media dict: {e}",
+                    )
+                    notify_all(
+                        NotificationEvent.RUN_END,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=16776960,
+                    )
                     self.logger.error(
                         "Error creating updated media dict: %s", e, exc_info=True
                     )  # type: ignore[attr-defined]
@@ -764,6 +793,17 @@ class PlexUploaderr:
         else:
             self.logger.info("Did not upload anything")
         self.logger.info("Finished plex upload.")
+        notify_all(
+            NotificationEvent.UPLOAD_SUMMARY,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=16776960,
+            upload_stats=self.upload_stats,
+        )
+        notify_all(
+            NotificationEvent.RUN_END,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=16776960,
+        )
 
     def update_cached_files(self, cached_files: dict):
         media_dict = utils.get_combined_media_dict(
@@ -841,6 +881,14 @@ class PlexUploaderr:
         self,
         job_id: str,
     ):
+        item_path = self.webhook_item.get("item_path", "") if self.webhook_item else ""
+        item_name = Path(item_path).name if item_path else "Unknown"
+        notify_all(
+            NotificationEvent.RUN_START,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=15844367,
+            message=f"Sync started for: {item_name}",
+        )
         self.upload_stats = {}
         utils.log_banner(
             self.logger, Settings.PLEX_UPLOADERR.value + " (webhook)", job_id
@@ -859,10 +907,32 @@ class PlexUploaderr:
             )
 
         if not self.webhook_item:
+            notify_all(
+                NotificationEvent.RUN_ERROR,
+                module=NotificationModule.PLEX_UPLOADERR.value,
+                color=15158332,
+                message="Webhook item data missing.",
+            )
+            notify_all(
+                NotificationEvent.RUN_END,
+                module=NotificationModule.PLEX_UPLOADERR.value,
+                color=16776960,
+            )
             self.logger.error("Webhook item data missing. Exiting.")
             return
 
         if not self.media_dict:
+            notify_all(
+                NotificationEvent.RUN_ERROR,
+                module=NotificationModule.PLEX_UPLOADERR.value,
+                color=15158332,
+                message="Media dict item data missing.",
+            )
+            notify_all(
+                NotificationEvent.RUN_END,
+                module=NotificationModule.PLEX_UPLOADERR.value,
+                color=16776960,
+            )
             self.logger.error("Media dict item data missing. Exiting.")
             return
 
@@ -902,6 +972,17 @@ class PlexUploaderr:
                         else:
                             plex_media_dict[name] = {"all_shows": item_dict}
                 except Exception as e:
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=15158332,
+                        message=f"Error retrieving media for Plex instance {name}: {e}",
+                    )
+                    notify_all(
+                        NotificationEvent.RUN_END,
+                        module=NotificationModule.PLEX_UPLOADERR.value,
+                        color=16776960,
+                    )
                     self.logger.error(
                         "Error retrieving media for Plex instance '%s': %s",
                         name,
@@ -946,11 +1027,18 @@ class PlexUploaderr:
                         )
                         break
                     else:
-                        self.search_recently_added_for_items(
+                        found = self.search_recently_added_for_items(
                             "movie",
                             item_title,
                             webhook_cached_files,
                         )
+                        if not found:
+                            notify_all(
+                                NotificationEvent.WEBHOOK_ITEM_NOT_FOUND,
+                                module=NotificationModule.PLEX_UPLOADERR.value,
+                                color=15158332,
+                                message=f"Item not found in Plex: {item_title}",
+                            )
                 else:
                     _, updated_show_dict = self.convert_plex_titles(
                         plex_movie_dict=None,
@@ -980,11 +1068,18 @@ class PlexUploaderr:
                         )
                         break
                     else:
-                        self.search_recently_added_for_items(
+                        found = self.search_recently_added_for_items(
                             "show",
                             item_title,
                             webhook_cached_files,
                         )
+                        if not found:
+                            notify_all(
+                                NotificationEvent.WEBHOOK_ITEM_NOT_FOUND,
+                                module=NotificationModule.PLEX_UPLOADERR.value,
+                                color=15158332,
+                                message=f"Item not found in Plex: {item_title}",
+                            )
         if self.upload_stats:
             self.logger.info("Upload summary:")
             for library_name, count in self.upload_stats.items():
@@ -992,3 +1087,15 @@ class PlexUploaderr:
         else:
             self.logger.info("Did not upload anything")
         self.logger.info("Finished plex upload (webhook)")
+        notify_all(
+            NotificationEvent.UPLOAD_SUMMARY,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=15844367,
+            upload_stats=self.upload_stats,
+        )
+        notify_all(
+            NotificationEvent.RUN_END,
+            module=NotificationModule.PLEX_UPLOADERR.value,
+            color=15844367,
+            message="Webhook run completed.",
+        )

@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useState, useRef } from "react";
 import { isValidCron } from "cron-validator";
 import FieldError from "../components/common/FieldError";
+import NotifierSidebar from "../components/settings/NotifierSidebar.jsx";
+import NotifierEventSidebar from "../components/settings/NotifierEventSidebar.jsx";
 import {
   KeyRound,
   Calendar,
@@ -50,6 +52,9 @@ function Settings() {
 
   const [activeSection, setActiveSection] = useState("instances");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [notifierSidebarOpen, setNotifierSidebarOpen] = useState(false);
+  const [notifierEventSidebarOpen, setNotifierEventSidebarOpen] =
+    useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [instanceName, setInstanceName] = useState("");
   const [url, setUrl] = useState("");
@@ -59,6 +64,7 @@ function Settings() {
   const [instances, setInstances] = useState([]);
   const [connectionTested, setConnectionTested] = useState(false);
   const [editingInstance, setEditingInstance] = useState(null);
+  const [editingNotifier, setEditingNotifier] = useState(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [errors, setErrors] = useState({});
   const [popupField, setPopupField] = useState(null);
@@ -84,12 +90,13 @@ function Settings() {
   const [pendingAction, setPendingAction] = useState(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
   const [expandedInstances, setExpandedInstances] = useState(new Set());
+  const [notifiers, setNotifiers] = useState([]);
 
   const sections = [
     { id: "instances", label: "Instances", icon: KeyRound },
     { id: "schedule", label: "Schedule", icon: Calendar },
     { id: "settings", label: "Settings", icon: Settings2 },
-    // { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "notifications", label: "Notifications", icon: Bell },
   ];
   const moduleNames = {
     "poster-renamerr": "Poster Renamerr",
@@ -292,6 +299,17 @@ function Settings() {
       }
     } catch (error) {
       console.error("Error fetching instances:", error);
+    }
+  };
+  const fetchNotifiers = async () => {
+    try {
+      const response = await fetch("/api/settings/get-notifiers");
+      const result = await response.json();
+      if (result.success) {
+        setNotifiers(result.notifiers);
+      }
+    } catch (error) {
+      console.error("Error fetching notifiers:", error);
     }
   };
 
@@ -588,6 +606,7 @@ function Settings() {
 
   useEffect(() => {
     fetchInstances();
+    fetchNotifiers();
   }, []);
 
   useEffect(() => {
@@ -1116,7 +1135,104 @@ function Settings() {
               <p className="text-sm text-gray-400">Please select a module.</p>
             )}
           </div>
+          {activeSection === "notifications" && (
+            <div>
+              <div className="mb-4 flex flex-col gap-3 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="mb-2 text-xl font-semibold text-white">
+                    Notifications
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    Configure notification agents.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setNotifierSidebarOpen(true);
+                    setEditingNotifier(null);
+                  }}
+                  className="mb-2 flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 sm:justify-start"
+                >
+                  <Plus size={18} />
+                  Add New
+                </button>
+              </div>
+              <div className="flex flex-col gap-6">
+                {notifiers.length === 0 ? (
+                  <p className="border-t border-gray-700 bg-gray-800 pt-6 text-sm text-gray-400">
+                    No notifiers configured yet.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex flex-row items-center justify-between gap-3 border-b border-gray-700 pb-2">
+                      <span className="text-xs font-medium uppercase text-gray-400">
+                        Type
+                      </span>
+                      <div className="flex shrink-0 items-center gap-4">
+                        <span className="flex w-16 items-center justify-center text-xs font-medium uppercase text-gray-400">
+                          Enabled
+                        </span>
+                        <span className="w-[100px]"></span>
+                      </div>
+                    </div>
+                    {notifiers.map((notifier) => (
+                      <div
+                        key={notifier.id}
+                        className="flex flex-row items-center justify-between gap-3"
+                      >
+                        <span className="capitalize text-white">
+                          {notifier.type}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-14">
+                          <span className="flex w-16 shrink-0 items-center justify-center">
+                            <span
+                              className={`rounded-md px-2 py-1 text-xs ${notifier.enabled ? "bg-green-500/20 text-green-400" : "bg-gray-600 text-gray-400"}`}
+                            >
+                              {notifier.enabled ? "Yes" : "No"}
+                            </span>
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEditingNotifier(notifier);
+                              setNotifierSidebarOpen(true);
+                            }}
+                            className="w-[66px] shrink-0 rounded-md px-3 py-1.5 text-sm text-white transition-colors hover:text-blue-500"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setNotifierEventSidebarOpen(true);
+                }}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-gray-600 px-4 py-2 text-sm text-white transition-colors hover:bg-gray-700 sm:w-auto sm:justify-start"
+              >
+                Configure Events
+              </button>
+            </div>
+          )}
         </div>
+        <NotifierSidebar
+          isOpen={notifierSidebarOpen}
+          editingNotifier={editingNotifier}
+          onSave={fetchNotifiers}
+          onClose={() => {
+            setNotifierSidebarOpen(false);
+            setEditingNotifier(null);
+          }}
+        />
+        <NotifierEventSidebar
+          isOpen={notifierEventSidebarOpen}
+          // onSave={fetchNotifiers}
+          onClose={() => {
+            setNotifierEventSidebarOpen(false);
+          }}
+        />
         {/* Sliding Sidebar */}
         <div
           className={`fixed right-0 top-0 z-[60] h-full w-full transform bg-gray-900 shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-xl ${
@@ -1252,10 +1368,12 @@ function Settings() {
                           </span>
                         )}
                     </div>
-                    <span className="text-xs text-gray-400">
-                      Must match: *arr &rarr; General &rarr; Advanced &rarr;
-                      Instance Name
-                    </span>
+                    {selectedType !== "plex" && (
+                      <span className="text-xs text-gray-400">
+                        Must match: *arr &rarr; General &rarr; Advanced &rarr;
+                        Instance Name
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1508,7 +1626,7 @@ function Settings() {
               }
             }}
             className="fixed inset-0 z-[55] bg-black bg-opacity-50"
-          ></div>
+          />
         )}
       </div>
       {pendingSection && (

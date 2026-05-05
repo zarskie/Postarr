@@ -10,6 +10,7 @@ from modules.logger import init_logger
 from modules.progress import ProgressState
 from modules.settings import Settings
 from modules.utils import log_banner
+from postarr.notifications import NotificationEvent, NotificationModule, notify_all
 from postarr.utils.webui_utils import sanitize_command_for_log
 
 
@@ -103,11 +104,22 @@ class DriveSync:
         cb: Callable[[str, int, ProgressState], None] | None = None,
         job_id: str | None = None,
     ):
+        notify_all(
+            NotificationEvent.RUN_START,
+            module=NotificationModule.DRIVE_SYNC.value,
+            color=8421504,
+        )
         log_banner(self.logger, Settings.DRIVE_SYNC.value, job_id)
         self.create_remote()
         total_drives = len(self.gdrives)
 
         if total_drives == 0:
+            notify_all(
+                NotificationEvent.RUN_ERROR,
+                module=NotificationModule.DRIVE_SYNC.value,
+                color=15158332,
+                message="No drives found for syncing.",
+            )
             self.logger.warning("No drives found for syncing.")
             if cb and job_id:
                 cb(job_id, 100, ProgressState.COMPLETED)
@@ -129,6 +141,12 @@ class DriveSync:
                     os.remove(rclone_rotated_log_path)
                 os.rename(rclone_log_path, rclone_rotated_log_path)
             except Exception as e:
+                notify_all(
+                    NotificationEvent.RUN_ERROR,
+                    module=NotificationModule.DRIVE_SYNC.value,
+                    color=15158332,
+                    message=f"Problem rotating rclone log file: {e}",
+                )
                 self.logger.error(
                     "Problem rotating rclone log file: %s", e, exc_info=True
                 )
@@ -162,7 +180,7 @@ class DriveSync:
                 if cb and job_id:
                     cb(
                         job_id,
-                        min(current_progress, 99),
+                        min(current_progress, 100),
                         ProgressState.IN_PROGRESS,
                     )
                 continue
@@ -242,7 +260,7 @@ class DriveSync:
                     if cb and job_id:
                         cb(
                             job_id,
-                            min(current_progress, 99),
+                            min(current_progress, 100),
                             ProgressState.IN_PROGRESS,
                         )
                 else:
@@ -251,11 +269,17 @@ class DriveSync:
                         drive_name,
                         process.returncode,
                     )
+                    notify_all(
+                        NotificationEvent.RUN_ERROR,
+                        module=NotificationModule.DRIVE_SYNC.value,
+                        color=15158332,
+                        message=f"Sync failed for drive: {drive_name} with return code {process.returncode}",
+                    )
                     current_progress += progress_step
                     if cb and job_id:
                         cb(
                             job_id,
-                            min(current_progress, 99),
+                            min(current_progress, 100),
                             ProgressState.IN_PROGRESS,
                         )
 
@@ -263,11 +287,17 @@ class DriveSync:
                 self.logger.error(
                     "Sync failed for drive '%s': %s", drive_name, e, exc_info=True
                 )
+                notify_all(
+                    NotificationEvent.RUN_ERROR,
+                    module=NotificationModule.DRIVE_SYNC.value,
+                    color=15158332,
+                    message=f"Sync failed for drive: {drive_name}: {e}",
+                )
                 current_progress += progress_step
                 if cb and job_id:
                     cb(
                         job_id,
-                        min(current_progress, 99),
+                        min(current_progress, 100),
                         ProgressState.IN_PROGRESS,
                     )
             finally:
@@ -280,4 +310,10 @@ class DriveSync:
             rclone_log_path,
         )
         if cb and job_id:
-            cb(job_id, 99, ProgressState.IN_PROGRESS)
+            cb(job_id, 100, ProgressState.COMPLETED)
+        notify_all(
+            NotificationEvent.RUN_END,
+            module=NotificationModule.DRIVE_SYNC.value,
+            color=8421504,
+            message=f"Finished syncing {total_drives} drive(s)",
+        )
