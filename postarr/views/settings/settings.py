@@ -27,14 +27,17 @@ def get_version():
 @settings.route("/check-update", methods=["GET"])
 def check_update():
     try:
+        current = os.environ.get("VERSION", "dev")
         response = requests.get(
-            "https://api.github.com/repos/zarskie/Postarr/tags",
+            "https://api.github.com/repos/zarskie/Postarr/releases",
             headers={"Accept": "application/vnd.github.v3+json"},
+            params={"per_page": 1},
             timeout=5,
         )
         data = response.json()
-        latest = data[0].get("name", "") if data else ""
-        current = os.environ.get("VERSION", "dev")
+
+        latest = data[0].get("tag_name", "") if data else ""
+
         return jsonify(
             {
                 "success": True,
